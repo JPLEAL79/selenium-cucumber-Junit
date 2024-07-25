@@ -1,5 +1,9 @@
 pipeline {
  agent any
+ tools{
+ maven 'maven'
+ jdk 'jdk'
+ }
      stages{
          stage('download source code'){
              steps{

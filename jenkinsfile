@@ -4,7 +4,7 @@ pipeline {
          stage('download source code'){
              steps{
               echo 'download source...'
-             git url: 'https://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@github.com/JPLEAL79/selenium-cucumber-Junit.git'
+             git branch: 'main', url: 'https://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@github.com/JPLEAL79/selenium-cucumber-Junit.git'
              }
          }
 

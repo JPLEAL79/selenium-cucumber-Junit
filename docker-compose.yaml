@@ -1,0 +1,48 @@
+version: '3'
+services:
+  selenium-hub:
+    image: selenium/hub:4.0.0-20230324
+    container_name: selenium-hub
+    ports:
+      - "4444:4444"  # Exponer el puerto del Hub
+    environment:
+      - HUB_HOST=localhost  # Cambiar IP a localhost para que el Hub escuche en localhost
+      - GRID_TIMEOUT=30
+    networks:
+      - selenium-grid
+
+  chrome-node:
+    image: selenium/node-chrome:4.0.0-20230324
+    container_name: chrome-node
+    depends_on:
+      - selenium-hub
+    environment:
+      - SE_NODE_HOST=chrome-node
+      - SE_NODE_PORT=5555
+      - SE_NODE_GRID_URL=http://localhost:4444/wd/hub  # Usar localhost para la URL del Hub
+      - SE_NODE_MAX_SESSIONS=1
+      - SE_NODE_BROWSER=chrome
+    ports:
+      - "5555:5555"
+    networks:
+      - selenium-grid
+
+  firefox-node:
+    image: selenium/node-firefox:4.0.0-20230324
+    container_name: firefox-node
+    depends_on:
+      - selenium-hub
+    environment:
+      - SE_NODE_HOST=firefox-node
+      - SE_NODE_PORT=5555
+      - SE_NODE_GRID_URL=http://localhost:4444/wd/hub  # Usar localhost para la URL del Hub
+      - SE_NODE_MAX_SESSIONS=1
+      - SE_NODE_BROWSER=firefox
+    ports:
+      - "5556:5555"
+    networks:
+      - selenium-grid
+
+networks:
+  selenium-grid:
+    driver: bridge

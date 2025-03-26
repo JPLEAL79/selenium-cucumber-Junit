@@ -1,9 +1,7 @@
 package commons;
 
 import definitions.hooks;
-import io.cucumber.core.backend.HookDefinition;
 import org.openqa.selenium.support.ui.WebDriverWait;
-
 import java.time.Duration;
 
 public class Utils extends hooks {

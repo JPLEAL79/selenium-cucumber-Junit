@@ -13,10 +13,9 @@ import java.util.concurrent.TimeUnit;
 
 public class hooks {
 
-
     public static WebDriver driver;
 
-    private static final String GRID_URL = "http://localhost:4444/wd/hub"; // Usar localhost en lugar de IP del Hub
+    private static final String GRID_URL = "http://localhost:4444/wd/hub"; // Usar localhost en lugar de la IP del Hub
 
     @Before
     public void setUp() throws MalformedURLException {
@@ -27,10 +26,14 @@ public class hooks {
         // Definir opciones para Chrome y Firefox
         if (browser.equalsIgnoreCase("firefox")) {
             FirefoxOptions firefoxOptions = new FirefoxOptions();
-            capabilities = firefoxOptions;  // Usamos FirefoxOptions que implementa Capabilities
+            firefoxOptions.addArguments("--start-maximized");  // Iniciar Firefox maximizado
+            // firefoxOptions.addArguments("--headless"); // Descomentar para ejecutar Firefox en modo headless
+            capabilities = firefoxOptions;  // Usar FirefoxOptions que implementa Capabilities
         } else {
             ChromeOptions chromeOptions = new ChromeOptions();
-            capabilities = chromeOptions;  // Usamos ChromeOptions que implementa Capabilities
+            chromeOptions.addArguments("--start-maximized");  // Iniciar Chrome maximizado
+            // chromeOptions.addArguments("--headless"); // Descomentar para ejecutar Chrome en modo headless
+            capabilities = chromeOptions;  // Usar ChromeOptions que implementa Capabilities
         }
 
         // Crear el WebDriver remoto usando la URL del Hub
@@ -45,3 +48,4 @@ public class hooks {
         }
     }
 }
+

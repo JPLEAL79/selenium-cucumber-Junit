@@ -4,19 +4,19 @@ import io.cucumber.java.en.And;
 import io.cucumber.java.en.Given;
 import io.cucumber.java.en.Then;
 import io.cucumber.java.en.When;
-import pages.CarritoPage;
+import pages.CartPage;
 import pages.CheckoutPage;
-import pages.ProductosPage;
+import pages.ProductsPage;
 
-public class ComprasProductosDefinition {
+public class ProductPurchasesDefinition {
 
-    ProductosPage productosPage;
-    CarritoPage carritoPage;
+    ProductsPage productosPage;
+    CartPage carritoPage;
     CheckoutPage checkoutPage;
 
-    public ComprasProductosDefinition() {
-        productosPage = new ProductosPage();
-        carritoPage = new CarritoPage();
+    public ProductPurchasesDefinition() {
+        productosPage = new ProductsPage();
+        carritoPage = new CartPage();
         checkoutPage = new CheckoutPage();
     }
 

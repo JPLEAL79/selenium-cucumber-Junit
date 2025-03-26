@@ -5,16 +5,16 @@ import io.cucumber.java.en.Given;
 import io.cucumber.java.en.Then;
 import io.cucumber.java.en.When;
 import pages.LoginPage;
-import pages.ProductosPage;
+import pages.ProductsPage;
 
 public class LoginDefinition {
 
     LoginPage loginPage;
-    ProductosPage productosPage;
+    ProductsPage productosPage;
 
     public LoginDefinition() {
         loginPage = new LoginPage();
-        productosPage = new ProductosPage();
+        productosPage = new ProductsPage();
     }
 
     @Given("que la web este disponible")

@@ -8,13 +8,13 @@ import org.openqa.selenium.support.FindBy;
 import org.openqa.selenium.support.PageFactory;
 import org.openqa.selenium.support.ui.ExpectedConditions;
 
-public class ProductosPage extends Utils {
+public class ProductsPage extends Utils {
 
 
     @FindBy(xpath = "//div[text()='Products']")protected WebElement lblTitulo;
     @FindBy(xpath = "//*[@id='shopping_cart_container']/a")protected WebElement btnCarrito;
 
-    public ProductosPage() {
+    public ProductsPage() {
         PageFactory.initElements(driver, this);
     }
 

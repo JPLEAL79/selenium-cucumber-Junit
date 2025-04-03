@@ -27,12 +27,12 @@ public class hooks {
         if (browser.equalsIgnoreCase("firefox")) {
             FirefoxOptions firefoxOptions = new FirefoxOptions();
             firefoxOptions.addArguments("--start-maximized");  // Iniciar Firefox maximizado
-            // firefoxOptions.addArguments("--headless"); // Descomentar para ejecutar Firefox en modo headless
+            firefoxOptions.addArguments("--headless"); // Descomentar para ejecutar Firefox en modo headless
             capabilities = firefoxOptions;  // Usar FirefoxOptions que implementa Capabilities
         } else {
             ChromeOptions chromeOptions = new ChromeOptions();
             chromeOptions.addArguments("--start-maximized");  // Iniciar Chrome maximizado
-            // chromeOptions.addArguments("--headless"); // Descomentar para ejecutar Chrome en modo headless
+            chromeOptions.addArguments("--headless"); // Descomentar para ejecutar Chrome en modo headless
             capabilities = chromeOptions;  // Usar ChromeOptions que implementa Capabilities
         }
 

@@ -3,28 +3,28 @@ version: '3.8'
 services:
   selenium-hub:
     image: selenium/hub:4.8.0
-    container_name: selenium-hub
+    container_name: selenium-hub # Especifica el nombre del contenedor como selenium-hub.
     ports:
       - "4444:4444"  # Exponer el puerto del Hub
     environment:
-      - SE_EVENT_BUS_HOST=selenium-hub
-      - SE_EVENT_BUS_PUBLISH_PORT=4442
-      - SE_EVENT_BUS_SUBSCRIBE_PORT=4443
+      - SE_EVENT_BUS_HOST=selenium-hub # El Hub maneja la comunicación entre los nodos.
+      - SE_EVENT_BUS_PUBLISH_PORT=4442 # Puerto donde el Hub publica eventos.
+      - SE_EVENT_BUS_SUBSCRIBE_PORT=4443 # Puerto donde los nodos se suscriben para recibir eventos.
     networks:
-      - selenium-grid
+      - selenium-grid # Conecta este servicio a la red selenium-grid para que pueda comunicarse con otros contenedores
 
   chrome-node:
-    image: selenium/node-chrome:4.8.0
-    container_name: chrome-node
+    image: selenium/node-chrome:4.8.0 # Define un nodo de navegador basado en la imagen selenium/node-chrome
+    container_name: chrome-node # Nombre del contenedor: chrome-node.
     depends_on:
-      - selenium-hub
+      - selenium-hub  # Indica que este servicio depende de selenium-hub (se ejecutará después de que el hub esté listo)
     environment:
-      - HUB_HOST=selenium-hub
-      - HUB_PORT=4444
-      - SE_EVENT_BUS_HOST=selenium-hub
-      - SE_EVENT_BUS_PUBLISH_PORT=4442
-      - SE_EVENT_BUS_SUBSCRIBE_PORT=4443
-      - SE_NODE_MAX_SESSIONS=2
+      - HUB_HOST=selenium-hub # Especifica que el nodo se conectará al Hub.
+      - HUB_PORT=4444 #  El puerto donde se comunica con el Hub.
+      - SE_EVENT_BUS_HOST=selenium-hub # Usa el mismo bus de eventos que el Hub.
+      - SE_EVENT_BUS_PUBLISH_PORT=4442 # Publica eventos en el puerto 4442.
+      - SE_EVENT_BUS_SUBSCRIBE_PORT=4443 # Se suscribe a eventos en el puerto 4443.
+      - SE_NODE_MAX_SESSIONS=2 #  Permite un máximo de 2 sesiones de prueba simultáneas en este nodo.
       - VNC_NO_PASSWORD=1  # Deshabilitar la contraseña de VNC
     ports:
       - "5555:5555"  # Puerto del nodo de Chrome
@@ -34,42 +34,42 @@ services:
 
   firefox-node:
     image: selenium/node-firefox:4.8.0
-    container_name: firefox-node
-    depends_on:
+    container_name: firefox-node # Nombre del contenedor: firefox-node
+    depends_on: # Se asegura de que el Hub se inicie primero antes de este nodo.
       - selenium-hub
     environment:
-      - HUB_HOST=selenium-hub
-      - HUB_PORT=4444
-      - SE_EVENT_BUS_HOST=selenium-hub
-      - SE_EVENT_BUS_PUBLISH_PORT=4442
-      - SE_EVENT_BUS_SUBSCRIBE_PORT=4443
-      - SE_NODE_MAX_SESSIONS=2
-      - VNC_NO_PASSWORD=1  # Deshabilitar la contraseña de VNC
+      - HUB_HOST=selenium-hub # Especifica que el nodo se conectará al Hub.
+      - HUB_PORT=4444 # El puerto donde se comunica con el Hub
+      - SE_EVENT_BUS_HOST=selenium-hub # Usa el mismo bus de eventos que el Hub.
+      - SE_EVENT_BUS_PUBLISH_PORT=4442 # Publica eventos en el puerto 4442
+      - SE_EVENT_BUS_SUBSCRIBE_PORT=4443 # Se suscribe a eventos en el puerto 4443.
+      - SE_NODE_MAX_SESSIONS=2 # Permite un máximo de 2 sesiones de prueba simultáneas en este nodo
+      - VNC_NO_PASSWORD=1  # Permite conectarse a VNC sin contraseña (para ver el navegador en ejecución).
     ports:
       - "5556:5555"  # Puerto del nodo de Firefox
       - "5901:5900"  # Puerto para VNC
     networks:
-      - selenium-grid
+      - selenium-grid # Conecta este nodo a la red selenium-grid.
 
   jenkins:
-    image: jenkins/jenkins:lts
-    container_name: jenkins
-    restart: unless-stopped
-    privileged: true
-    user: root
+    image: jenkins/jenkins:lts # Usa la imagen Jenkins LTS (versión estable de largo plazo)
+    container_name: jenkins # Nombre del contenedor: jenkins.
+    restart: unless-stopped # Jenkins se reiniciará automáticamente, excepto si se detiene manualmente.
+    privileged: true #  Permite que Jenkins tenga permisos elevado
+    user: root # Ejecuta Jenkins como usuario root
     ports:
       - "8080:8080"  # Puerto para acceder a Jenkins
       - "50000:50000" # Puerto para agentes remotos
     volumes:
-      - jenkins_home:/var/jenkins_home
+      - jenkins_home:/var/jenkins_home # Almacena datos persistentes de Jenkins.
       - /var/run/docker.sock:/var/run/docker.sock  # Permite que Jenkins use Docker
     networks:
-      - selenium-grid
+      - selenium-grid #  # Conecta este nodo a la red selenium-grid.
 
 networks:
   selenium-grid:
-    driver: bridge
+    driver: bridge # Define una red llamada selenium-grid con el driver bridge, permitiendo la comunicación entre los servicios
 
 volumes:
-  jenkins_home:
+  jenkins_home: # Define un volumen persistente jenkins_home para almacenar datos de Jenkins entre reinicios.
 

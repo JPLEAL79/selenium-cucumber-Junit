@@ -19,4 +19,4 @@ Feature: Funcionalidad web login
     Examples:
       | usuario         | clave        | mensaje                                                                   |
       | locked_out_user | secret_sauce | Epic sadface: Sorry, this user has been locked out.                       |
-      | aavilav         | 1234567890   | Epic sadface: Username and password do not match any user in this service |
+      | jpleal79        | 1234567890   | Epic sadface: Username and password do not match any user in this service |

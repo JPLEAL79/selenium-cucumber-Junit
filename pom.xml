@@ -42,6 +42,19 @@
             <version>5.10.2</version>
             <scope>test</scope>
         </dependency>
+    <!-- Allure JUnit5 integration -->
+        <!-- https://mvnrepository.com/artifact/io.qameta.allure/allure-junit5 -->
+        <dependency>
+            <groupId>io.qameta.allure</groupId>
+            <artifactId>allure-junit5</artifactId>
+            <version>2.24.0</version>
+            <scope>test</scope>
+        </dependency>
+    <!-- Dependencia para Commons IO -->
+    <dependency>
+        <groupId>commons-io</groupId>
+        <artifactId>commons-io</artifactId>
+        <version>2.7</version>
+    </dependency>
     </dependencies>
-
 </project>

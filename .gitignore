@@ -42,3 +42,8 @@ build/
 ### Mac OS ###
 # Ignore macOS specific system files
 .DS_Store
+
+### Allure ###
+# Ignore Allure results directory
+allure-results/
+

@@ -1,5 +1,5 @@
-# Usar la imagen base de OpenJDK 21
-FROM openjdk:21-jdk-slim
+# Usar la imagen base de OpenJDK 17 slim
+FROM openjdk:17-jdk-slim
 
 # Instalar dependencias necesarias
 RUN apt-get update && \
@@ -28,8 +28,12 @@ ENV PATH="${ALLURE_HOME}/bin:${PATH}"
 # Establecer el directorio de trabajo
 WORKDIR /app
 
-# Comando por defecto para ejecutar Allure, asignando explícitamente el puerto 8082
+# Exponer puerto 8082 para Allure (Jenkins usa 8080)
+EXPOSE 8082
+
+# Comando por defecto para ejecutar Allure en puerto 8082
 CMD ["allure", "serve", "/app/allure-results", "-p", "8082"]
+
 
 
 

@@ -1,39 +1,27 @@
-# Usar la imagen base de OpenJDK 17 slim
-FROM openjdk:17-jdk-slim
+FROM maven:3.9.9-eclipse-temurin-17
 
 # Instalar dependencias necesarias
-RUN apt-get update && \
-    apt-get install -y wget unzip curl && \
-    apt-get clean
+RUN apt-get update && apt-get install -y \
+    curl \
+    unzip \
+    wget \
+    && rm -rf /var/lib/apt/lists/*
 
-# Descargar e instalar Maven 3.9.9
-RUN wget https://downloads.apache.org/maven/maven-3/3.9.9/binaries/apache-maven-3.9.9-bin.tar.gz && \
-    tar -xvzf apache-maven-3.9.9-bin.tar.gz -C /opt && \
-    rm apache-maven-3.9.9-bin.tar.gz
+# Instalar Allure 2.24.0
+ENV ALLURE_VERSION=2.24.0
+RUN wget https://github.com/allure-framework/allure2/releases/download/${ALLURE_VERSION}/allure-${ALLURE_VERSION}.tgz && \
+    tar -zxvf allure-${ALLURE_VERSION}.tgz && \
+    mv allure-${ALLURE_VERSION} /opt/allure && \
+    ln -s /opt/allure/bin/allure /usr/bin/allure
 
-# Configurar variables de entorno para Maven
-ENV MAVEN_HOME=/opt/apache-maven-3.9.9
-ENV PATH="${MAVEN_HOME}/bin:${PATH}"
+# Crear directorio de trabajo
+WORKDIR /usr/src/app
 
-# Descargar e instalar Allure 2.24.0
-RUN wget https://github.com/allure-framework/allure2/releases/download/2.24.0/allure-2.24.0.zip && \
-    unzip allure-2.24.0.zip -d /opt && \
-    mv /opt/allure-2.24.0 /opt/allure && \
-    rm allure-2.24.0.zip
+# Copiar el contenido del proyecto al contenedor
+COPY . .
 
-# Configurar el PATH de Allure
-ENV ALLURE_HOME=/opt/allure
-ENV PATH="${ALLURE_HOME}/bin:${PATH}"
-
-# Establecer el directorio de trabajo
-WORKDIR /app
-
-# Exponer puerto 8082 para Allure (Jenkins usa 8080)
-EXPOSE 8082
-
-# Comando por defecto para ejecutar Allure en puerto 8082
-CMD ["allure", "serve", "/app/allure-results", "-p", "8082"]
-
+# El contenedor iniciará en bash para que lo puedas ejecutar manualmente si quieres
+CMD ["bash"]
 
 
 

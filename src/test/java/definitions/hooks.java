@@ -22,7 +22,7 @@ public class hooks {
 
     public static WebDriver driver;
 
-    private static final String GRID_URL = "http://localhost:4444/wd/hub";
+    private static final String GRID_URL = "http://localhost:4444";
 
     @Before
     public void setUp() throws MalformedURLException {

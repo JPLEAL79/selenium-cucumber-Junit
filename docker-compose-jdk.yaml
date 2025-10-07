@@ -1,0 +1,15 @@
+services:
+  jdk-maven:
+    build:
+      context: .
+      dockerfile: Dockerfile-jdk-maven
+    image: jdk-maven            # nombre exacto de la imagen
+    container_name: jdk-maven   # nombre exacto del contenedor
+    networks:
+      - selenium-grid           # conecta a la red del Grid
+    restart: unless-stopped     # reinicia automáticamente si falla
+    command: ["mvn", "clean", "test"]
+
+networks:
+  selenium-grid:
+    external: true              # usa la red ya creada por el compose principal

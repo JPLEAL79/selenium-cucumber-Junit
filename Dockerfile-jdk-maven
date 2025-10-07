@@ -1,0 +1,18 @@
+# Usa una imagen base con Maven y JDK 17 (para compilar y ejecutar pruebas Java)
+FROM maven:3.9.9-eclipse-temurin-17
+
+# Instala utilidades básicas necesarias para descargas y scripts
+RUN apt-get update && apt-get install -y \
+    curl \
+    unzip \
+    wget \
+    && rm -rf /var/lib/apt/lists/*  # Limpia caché para reducir el tamaño de la imagen
+
+# Define el directorio de trabajo dentro del contenedor
+WORKDIR /usr/src/app
+
+# Copia el contenido del proyecto (código fuente, pom.xml, etc.) al contenedor
+COPY . .
+
+# Comando por defecto: ejecuta las pruebas de Maven automáticamente
+CMD ["mvn", "clean", "test"]

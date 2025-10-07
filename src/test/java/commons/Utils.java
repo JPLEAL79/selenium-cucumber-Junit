@@ -1,10 +1,10 @@
 package commons;
 
-import definitions.hooks;
+import definitions.Hooks;
 import org.openqa.selenium.support.ui.WebDriverWait;
 import java.time.Duration;
 
-public class Utils extends hooks {
+public class Utils extends Hooks {
 
     public static WebDriverWait wait;
     public Utils() {

@@ -8,7 +8,8 @@ import org.openqa.selenium.support.ui.ExpectedConditions;
 
 public class CheckoutPage extends Utils {
 
-    @FindBy(id = "first-name")protected WebElement txtNombre;
+    @FindBy(id = "first-name")
+    protected WebElement txtNombre;
     @FindBy(id = "last-name")protected WebElement txtApellido;
     @FindBy(id = "postal-code")protected WebElement txtPostal;
     @FindBy(xpath = "//input[@value='CONTINUE']")protected WebElement btnContinuar;

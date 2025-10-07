@@ -1,0 +1,26 @@
+# Imagen base liviana con JDK 17
+FROM openjdk:17-jdk-slim
+
+# Instalar utilidades necesarias
+RUN apt-get update && apt-get install -y \
+    curl \
+    unzip \
+    wget \
+    && rm -rf /var/lib/apt/lists/*  # Limpia la caché para reducir tamaño
+
+# Instalar Allure 2.35.1
+ENV ALLURE_VERSION=2.35.1
+RUN wget https://github.com/allure-framework/allure2/releases/download/${ALLURE_VERSION}/allure-${ALLURE_VERSION}.tgz && \
+    tar -zxvf allure-${ALLURE_VERSION}.tgz && \
+    mv allure-${ALLURE_VERSION} /opt/allure && \
+    ln -s /opt/allure/bin/allure /usr/bin/allure && \
+    rm allure-${ALLURE_VERSION}.tgz
+
+# Directorio donde se montarán los resultados
+WORKDIR /app
+
+# Exponer puerto para la interfaz web
+EXPOSE 4040
+
+# Comando por defecto: servir el reporte en el puerto 4040
+CMD sh -c "allure generate /app/allure-results -o /app/allure-report --clean && allure open /app/allure-report --host 0.0.0.0 --port 4040"

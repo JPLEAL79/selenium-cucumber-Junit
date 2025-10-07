@@ -1,31 +1,34 @@
-# Ignore Maven target directories
+# =========================================================
+# 🔧 Maven build
+# =========================================================
 target/
 !.mvn/wrapper/maven-wrapper.jar
 !**/src/main/**/target/
 !**/src/test/**/target/
 
-### IntelliJ IDEA ###
-# Ignore IntelliJ IDEA project files and workspace configurations
-.idea/modules.xml
-.idea/jarRepositories.xml
-.idea/compiler.xml
-.idea/libraries/
+# =========================================================
+# IntelliJ IDEA
+# =========================================================
+# Ignore all IntelliJ project files and configs
+.idea/
 *.iws
 *.iml
 *.ipr
 
-### Eclipse ###
-# Ignore Eclipse IDE project files and build directories
+# =========================================================
+# Eclipse
+# =========================================================
 .apt_generated
 .classpath
 .factorypath
 .project
-.settings
+.settings/
 .springBeans
 .sts4-cache
 
-### NetBeans ###
-# Ignore NetBeans IDE specific directories
+# =========================================================
+# NetBeans
+# =========================================================
 /nbproject/private/
 /nbbuild/
 /dist/
@@ -35,10 +38,26 @@ build/
 !**/src/main/**/build/
 !**/src/test/**/build/
 
-### VS Code ###
-# Ignore Visual Studio Code configuration files
+# =========================================================
+# Visual Studio Code
+# =========================================================
 .vscode/
 
-### Mac OS ###
-# Ignore macOS specific system files
+# =========================================================
+# macOS system files
+# =========================================================
 .DS_Store
+
+# =========================================================
+# Allure Reports
+# =========================================================
+allure-results/
+allure-report/
+target/allure-results/
+target/allure-report/
+
+# =========================================================
+# Docker temporary and logs
+# =========================================================
+*.log
+docker-compose.override.yml

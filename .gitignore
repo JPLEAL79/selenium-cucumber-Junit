@@ -72,3 +72,4 @@ target/allure-report/
 *.log
 docker-compose.override.yml
 
+.idea/

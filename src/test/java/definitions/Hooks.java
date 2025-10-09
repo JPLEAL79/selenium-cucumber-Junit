@@ -13,42 +13,39 @@ import java.time.Duration;
 
 public class Hooks {
 
-    // Driver compartido por las clases de test
     public static WebDriver driver;
 
-    // URL del Selenium Grid (puede ser "selenium-hub" si está en Docker)
-    private static final String GRID_URL = "http://localhost:4444/wd/hub";
+    // Resolver URL del Grid sin hardcodear localhost
+    private static String resolveGridUrl() {
+        String fromProp = System.getProperty("selenium.grid.url",
+                System.getProperty("grid.url", null));
+        if (fromProp != null && !fromProp.isBlank()) return fromProp;
+
+        String fromEnv = System.getenv("SELENIUM_GRID_URL");
+        if (fromEnv != null && !fromEnv.isBlank()) return fromEnv;
+
+        // Fallback para ejecución en Docker (misma red que el hub)
+        return "http://selenium-hub:4444/wd/hub";
+    }
 
     @Before
     public void setUp() throws MalformedURLException {
-        // Define el navegador desde línea de comandos: -Dbrowser=chrome o firefox
+        String gridUrl = resolveGridUrl();
+        System.out.println("[Hooks] Selenium Grid URL: " + gridUrl);
+
         String browser = System.getProperty("browser", "chrome").toLowerCase();
 
-        if (browser.equals("firefox")) {
+        if ("firefox".equals(browser)) {
             FirefoxOptions ff = new FirefoxOptions();
             ff.setAcceptInsecureCerts(true);
-
-            // 🚫 Headless (por defecto: no muestra interfaz)
-            ff.addArguments("--headless");
-
-            // 🖥️ Si quieres ver la interfaz de Firefox, comenta la línea anterior
-            // ff.addArguments("--start-maximized");
-
+            ff.addArguments("-headless"); // headless en Firefox
             ff.addArguments("--width=1920", "--height=1080");
-            driver = new RemoteWebDriver(new URL(GRID_URL), ff);
-
+            driver = new RemoteWebDriver(new URL(gridUrl), ff);
         } else {
             ChromeOptions ch = new ChromeOptions();
             ch.setAcceptInsecureCerts(true);
-
-            // 🚫 Headless (por defecto: sin interfaz, consume menos recursos)
-            ch.addArguments("--headless=new");
-
-            // 🖥️ Si quieres ver la interfaz, comenta la línea anterior y descomenta esta:
-            // ch.addArguments("--start-maximized");
-
-            // 🔧 Flags recomendadas para evitar crash y reducir consumo en Docker
             ch.addArguments(
+                    "--headless=new",
                     "--no-sandbox",
                     "--disable-dev-shm-usage",
                     "--disable-gpu",
@@ -56,19 +53,14 @@ public class Hooks {
                     "--disable-popup-blocking",
                     "--window-size=1920,1080"
             );
-
-            driver = new RemoteWebDriver(new URL(GRID_URL), ch);
+            driver = new RemoteWebDriver(new URL(gridUrl), ch);
         }
 
-        // ⏱️ Tiempo de espera implícito (moderno y liviano)
         driver.manage().timeouts().implicitlyWait(Duration.ofSeconds(15));
     }
 
     @After
     public void tearDown() {
-        // Cierra el navegador y libera los recursos
-        if (driver != null) {
-            driver.quit();
-        }
+        if (driver != null) driver.quit();
     }
 }

@@ -1,113 +1,89 @@
 /**
+ *Autor: Juan Pablo Leal
  * Jenkinsfile – Selenium + Cucumber + JUnit + Allure
- * Autor: Juan Pablo Leal
- * Propósito: Pipeline declarativo para ejecutar pruebas automatizadas
- * usando Maven, Cucumber y Allure Reports dentro del contenedor jdk-maven.
+ * Pipeline declarativo para ejecutar pruebas dentro del contenedor jdk-maven,
+ * conectado a la red del Selenium Grid.
  */
 
 pipeline {
 
-    // Ejecuta todo dentro de la imagen que ya trae JDK + Maven (tu "jdk-maven")
+    // El job corre dentro del contenedor Docker "jdk-maven"
     agent {
         docker {
             image 'jdk-maven'
-            args '-v /var/jenkins_home:/home/jenkins -u root'
+            // Conecta a la red del Grid y ejecuta como root
+            args '--network=selenium-grid -u root'
         }
     }
 
-    // Variables de entorno globales
     environment {
-        ALLURE_RESULTS = 'target/allure-results'
+        // URL del hub accesible desde este contenedor (nombre DNS del servicio en la red del Grid)
+        SELENIUM_GRID_URL = 'http://selenium-hub:4444/wd/hub'
     }
 
     options {
-        // Mantener solo las últimas 5 ejecuciones
-        buildDiscarder(logRotator(numToKeepStr: '5'))
-        // No permitir builds concurrentes
-        disableConcurrentBuilds()
-        // Marcas de tiempo en consola
-        timestamps()
-        // Evita el checkout automático por defecto; lo haremos en nuestro stage
-        skipDefaultCheckout(true)
+        buildDiscarder(logRotator(numToKeepStr: '5'))   // conserva solo 5 builds
+        disableConcurrentBuilds()                      // evita builds en paralelo
+        timestamps()                                   // timestamps en logs
     }
 
     stages {
 
-        // 1) Checkout del código fuente con credenciales
         stage('Checkout Code') {
             steps {
-                echo 'Clonando código desde el repositorio GitHub...'
+                echo 'Clonando código desde GitHub...'
                 git branch: 'feature/jenkins-pipeline-integration',
                     url: 'https://github.com/JPLEAL79/selenium-cucumber-Junit.git',
                     credentialsId: 'github-jenkins-ci'
             }
         }
 
-        // 2) Limpieza previa para evitar mezclar reportes viejos
         stage('Clean Workspace') {
             steps {
-                echo 'Eliminando reportes y artefactos de ejecuciones anteriores...'
-                sh 'rm -rf target/allure-results || true'
-                sh 'rm -rf target/allure-report || true'
-                sh 'rm -rf target/surefire-reports || true'
+                echo 'Limpieza previa de artefactos antiguos...'
+                sh 'rm -rf allure-results target/allure-results target/allure-report target/surefire-reports || true'
             }
         }
 
-        // 3) Compilación y resolución de dependencias
         stage('Build & Dependencies') {
             steps {
-                echo 'Compilando el proyecto y descargando dependencias Maven...'
-                sh 'mvn clean compile -Dmaven.test.failure.ignore=true'
+                echo 'Compilando y resolviendo dependencias...'
+                sh 'mvn -B -U clean compile -Dmaven.test.failure.ignore=true'
             }
         }
 
-        // 4) Ejecución de pruebas
         stage('Run Automated Tests') {
             steps {
-                echo 'Ejecutando pruebas automatizadas con JUnit y Cucumber...'
-                sh 'mvn test -Dmaven.test.failure.ignore=true'
+                echo 'Ejecutando pruebas (Cucumber + JUnit) contra el Selenium Grid...'
+                // Pasamos la URL del Grid por -D (tu Hooks ya la lee por -D y/o ENV)
+                sh "mvn -B test -Dselenium.grid.url=${SELENIUM_GRID_URL} -Dgrid.url=${SELENIUM_GRID_URL} -Dbrowser=chrome -Dmaven.test.failure.ignore=true"
             }
             post {
                 always {
-                    echo 'Archivando los resultados de las pruebas...'
-                    // Publica resultados JUnit en Jenkins (no falla si están vacíos)
+                    echo 'Publicando resultados JUnit y guardando Allure results...'
                     junit allowEmptyResults: true, testResults: '**/target/surefire-reports/*.xml'
-                    // Archiva resultados de Allure para la publicación posterior
-                    archiveArtifacts artifacts: 'target/allure-results/**', fingerprint: true
+                    archiveArtifacts artifacts: 'allure-results/**', allowEmptyArchive: true, fingerprint: true
                 }
             }
         }
 
-        // 5) Generación y publicación del reporte Allure en Jenkins
-        stage('Generate Allure Report') {
+        stage('Allure Report') {
             steps {
-                echo 'Generando reporte Allure...'
-                sh 'mvn allure:report'
-            }
-            post {
-                success {
-                    echo 'Reporte Allure generado correctamente.'
-                    // Publica el reporte Allure usando la instalación Allure_2.35.1 configurada en "Manage Jenkins → Tools"
-                    allure includeProperties: false,
-                           jdk: '',
-                           results: [[path: 'target/allure-results']],
-                           commandline: 'Allure_2.35.1'
-                }
+                echo 'Publicando reporte Allure...'
+                // El plugin de Jenkins lee directamente "allure-results/"
+                allure includeProperties: false,
+                       jdk: '',
+                       results: [[path: 'allure-results']]
             }
         }
     }
 
-    // Limpieza final del workspace y mensajes de estado
     post {
         always {
             echo 'Limpieza final del workspace...'
             cleanWs()
         }
-        success {
-            echo 'Pipeline finalizado correctamente.'
-        }
-        failure {
-            echo 'El pipeline ha fallado. Revisar logs de consola.'
-        }
+        success { echo 'Pipeline finalizado OK.' }
+        failure { echo 'Pipeline falló. Revisa la consola.' }
     }
 }

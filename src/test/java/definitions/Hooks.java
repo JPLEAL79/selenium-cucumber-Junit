@@ -17,14 +17,25 @@ public class Hooks {
 
     // Resolver URL del Grid sin hardcodear localhost
     private static String resolveGridUrl() {
-        String fromProp = System.getProperty("selenium.grid.url",
-                System.getProperty("grid.url", null));
+        // Primero lee lo que se pasa por -DseleniumGridUrl
+        String fromProp = System.getProperty("seleniumGridUrl",
+                System.getProperty("selenium.grid.url",
+                        System.getProperty("grid.url", null)));
+
         if (fromProp != null && !fromProp.isBlank()) return fromProp;
 
         String fromEnv = System.getenv("SELENIUM_GRID_URL");
         if (fromEnv != null && !fromEnv.isBlank()) return fromEnv;
 
-        // Fallback para ejecución en Docker (misma red que el hub)
+        // Detecta si está corriendo dentro de Docker (Jenkins)
+        String inDocker = System.getenv("RUNNING_IN_DOCKER");
+
+        // Si no está en Docker → usa localhost
+        if (inDocker == null) {
+            return "http://localhost:4444/wd/hub";
+        }
+
+        // Fallback para ejecución en Jenkins/Docker
         return "http://selenium-hub:4444/wd/hub";
     }
 
@@ -34,12 +45,12 @@ public class Hooks {
         System.out.println("[Hooks] Selenium Grid URL: " + gridUrl);
 
         String browser = System.getProperty("browser", "chrome").toLowerCase();
+        System.out.println("[Hooks] Browser: " + browser);
 
         if ("firefox".equals(browser)) {
             FirefoxOptions ff = new FirefoxOptions();
             ff.setAcceptInsecureCerts(true);
-            ff.addArguments("-headless"); // headless en Firefox
-            ff.addArguments("--width=1920", "--height=1080");
+            ff.addArguments("-headless", "--width=1920", "--height=1080");
             driver = new RemoteWebDriver(new URL(gridUrl), ff);
         } else {
             ChromeOptions ch = new ChromeOptions();

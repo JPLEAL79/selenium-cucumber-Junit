@@ -15,28 +15,25 @@ public class Hooks {
 
     public static WebDriver driver;
 
-    // Resolver URL del Grid sin hardcodear localhost
+    //  Resolver URL del Selenium Grid (Docker o local)
     private static String resolveGridUrl() {
-        // Primero lee lo que se pasa por -DseleniumGridUrl
-        String fromProp = System.getProperty("seleniumGridUrl",
-                System.getProperty("selenium.grid.url",
-                        System.getProperty("grid.url", null)));
-
+        // Busca primero una propiedad del sistema (-DseleniumGridUrl)
+        String fromProp = System.getProperty("seleniumGridUrl");
         if (fromProp != null && !fromProp.isBlank()) return fromProp;
 
+        // Luego revisa la variable de entorno (útil en Jenkins o Docker)
         String fromEnv = System.getenv("SELENIUM_GRID_URL");
         if (fromEnv != null && !fromEnv.isBlank()) return fromEnv;
 
-        // Detecta si está corriendo dentro de Docker (Jenkins)
-        String inDocker = System.getenv("RUNNING_IN_DOCKER");
+        // Detecta si está en Docker por hostname del Hub (más confiable que RUNNING_IN_DOCKER)
+        try {
+            if (new java.io.File("/.dockerenv").exists()) {
+                return "http://selenium-hub:4444/wd/hub";
+            }
+        } catch (Exception ignored) {}
 
-        // Si no está en Docker → usa localhost
-        if (inDocker == null) {
-            return "http://localhost:4444/wd/hub";
-        }
-
-        // Fallback para ejecución en Jenkins/Docker
-        return "http://selenium-hub:4444/wd/hub";
+        // Fallback local (cuando se ejecuta fuera de contenedor)
+        return "http://localhost:4444/wd/hub";
     }
 
     @Before
@@ -72,6 +69,9 @@ public class Hooks {
 
     @After
     public void tearDown() {
-        if (driver != null) driver.quit();
+        if (driver != null) {
+            driver.quit();
+            System.out.println("[Hooks] WebDriver cerrado correctamente.");
+        }
     }
 }

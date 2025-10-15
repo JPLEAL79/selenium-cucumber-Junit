@@ -14,8 +14,7 @@ services:
       - selenium-grid                           # Conecta al Grid
     restart: unless-stopped                     # Reinicia si falla
     command: >
-      sh -c "allure generate /app/allure-results -o /app/allure-report --clean &&
-             allure open /app/allure-report --host 0.0.0.0 --port 4040"
+      sh -c "allure serve /app/allure-results --host 0.0.0.0 --port 4040"
 
 networks:
   selenium-grid:

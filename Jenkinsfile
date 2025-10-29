@@ -92,8 +92,6 @@ pipeline {
         always {
             echo 'Limpieza final del workspace...'
             cleanWs()
-            // 3) Reiniciar el contenedor de Allure 4040 para regenerar el reporte con los nuevos resultados
-            sh 'docker restart allure-reports || true'
         }
         success { echo 'Pipeline finalizado OK.' }
         failure { echo 'Pipeline falló. Revisa la consola.' }

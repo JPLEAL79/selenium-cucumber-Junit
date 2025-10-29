@@ -7,24 +7,21 @@
 
 pipeline {
 
-    // El job corre dentro del contenedor Docker "jdk-maven"
     agent {
         docker {
             image 'jdk-maven'
-            // Conecta a la red del Grid y ejecuta como root
             args '--network=selenium-grid -u root'
         }
     }
 
     environment {
-        // URL del hub accesible desde este contenedor (nombre DNS del servicio en la red del Grid)
         SELENIUM_GRID_URL = 'http://selenium-hub:4444/wd/hub'
     }
 
     options {
-        buildDiscarder(logRotator(numToKeepStr: '20')) // conserva solo 20 builds
-        disableConcurrentBuilds()                      // evita builds en paralelo
-        timestamps()                                   // timestamps en logs
+        buildDiscarder(logRotator(numToKeepStr: '20'))
+        disableConcurrentBuilds()
+        timestamps()
     }
 
     stages {
@@ -56,41 +53,47 @@ pipeline {
                     echo 'Publicando resultados JUnit y guardando Allure results...'
                     junit allowEmptyResults: true, testResults: '**/target/surefire-reports/*.xml'
                     archiveArtifacts artifacts: 'allure-results/**', allowEmptyArchive: true, fingerprint: true
+                    // 1) Stash resultados para moverlos en el controlador
+                    stash name: 'allure-results', includes: 'allure-results/**', allowEmpty: true
                 }
             }
         }
 
-        // Exporta resultados a carpeta persistente leída por el contenedor Allure (4040)
-        stage('Export Allure for 4040') {
+        // 2) Unstash en el controlador (built-in) y copiar a ${JENKINS_HOME}
+        stage('Export Allure for 4040 (controller)') {
+            agent { label 'built-in' } // corre en el controlador, no en el contenedor del agente
             steps {
-                echo 'Exportando allure-results a carpeta persistente...'
+                echo 'Exportando allure-results a carpeta persistente del controlador...'
+                dir('allure-export') {
+                    // Trae lo stasheado desde el agente
+                    unstash 'allure-results'
+                }
                 sh """
-                  mkdir -p "\${JENKINS_HOME}/allure-share/\${JOB_NAME}"
-                  rm -rf "\${JENKINS_HOME}/allure-share/\${JOB_NAME}/*" || true
-                  cp -r allure-results/* "\${JENKINS_HOME}/allure-share/\${JOB_NAME}/" || true
-                  ls -la "\${JENKINS_HOME}/allure-share/\${JOB_NAME}/" || true
+                  mkdir -p "\${JENKINS_HOME}/allure-share/ecommerce-web-automation"
+                  rm -rf "\${JENKINS_HOME}/allure-share/ecommerce-web-automation/*" || true
+                  cp -r allure-export/allure-results/* "\${JENKINS_HOME}/allure-share/ecommerce-web-automation/" || true
+                  ls -la "\${JENKINS_HOME}/allure-share/ecommerce-web-automation/" || true
                 """
             }
         }
 
-        stage('Export Allure for 4040') {
-          steps {
-            echo 'Exportando allure-results a carpeta persistente...'
-            sh """
-              mkdir -p "\${JENKINS_HOME}/allure-share/ecommerce-web-automation"
-              rm -rf "\${JENKINS_HOME}/allure-share/ecommerce-web-automation/*" || true
-              cp -r allure-results/* "\${JENKINS_HOME}/allure-share/ecommerce-web-automation/" || true
-              ls -la "\${JENKINS_HOME}/allure-share/ecommerce-web-automation/" || true
-            """
-          }
+        stage('Allure Report (Jenkins)') {
+            steps {
+                echo 'Publicando reporte Allure en Jenkins...'
+                allure commandline: 'allure-2.35.1',
+                       includeProperties: false,
+                       jdk: '',
+                       results: [[path: 'allure-results']]
+            }
         }
-
     }
 
     post {
         always {
             echo 'Limpieza final del workspace...'
-            cleanWs() // deja el workspace limpio después de exportar
+            cleanWs()
+            // 3) Reiniciar el contenedor de Allure 4040 para regenerar el reporte con los nuevos resultados
+            sh 'docker restart allure-reports || true'
         }
         success { echo 'Pipeline finalizado OK.' }
         failure { echo 'Pipeline falló. Revisa la consola.' }

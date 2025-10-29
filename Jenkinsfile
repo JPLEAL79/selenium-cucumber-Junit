@@ -30,7 +30,7 @@ pipeline {
             steps {
                 echo 'Limpieza previa de artefactos antiguos...'
                 sh '''
-                  rm -rf target/surefire-reports allure-results target/allure-report allure-results allure-report || true
+                  rm -rf allure-results allure-report target/surefire-reports target/allure-results target/allure-report || true
                   mkdir -p allure-results
                 '''
             }
@@ -52,7 +52,9 @@ pipeline {
                 always {
                     echo 'Publicando resultados JUnit y guardando Allure results...'
                     junit allowEmptyResults: true, testResults: '**/target/surefire-reports/*.xml'
+                    // guarda cualquier resultado Allure que exista
                     archiveArtifacts artifacts: 'allure-results/**', allowEmptyArchive: true, fingerprint: true
+                    // stash para exportar en el controlador
                     stash name: 'allure-results', includes: 'allure-results/**', allowEmpty: true
                 }
             }
@@ -76,10 +78,14 @@ pipeline {
         stage('Allure Report (Jenkins)') {
             steps {
                 echo 'Publicando reporte Allure en Jenkins...'
-                allure commandline: 'allure-2.35.1',
-                       includeProperties: false,
-                       jdk: '',
-                       results: [[path: 'allure-results']]
+                script {
+                    catchError(buildResult: 'UNSTABLE', stageResult: 'UNSTABLE') {
+                        allure commandline: 'allure-2.35.1',
+                               includeProperties: false,
+                               jdk: '',
+                               results: [[path: 'allure-results']]
+                    }
+                }
             }
         }
     }

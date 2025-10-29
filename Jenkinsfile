@@ -30,8 +30,8 @@ pipeline {
             steps {
                 echo 'Limpieza previa de artefactos antiguos...'
                 sh '''
-                  rm -rf allure-results allure-report target/surefire-reports target/allure-results target/allure-report || true
-                  mkdir -p allure-results
+                  rm -rf target/surefire-reports target/allure-results target/allure-report allure-results allure-report || true
+                  mkdir -p target/allure-results
                 '''
             }
         }
@@ -52,23 +52,22 @@ pipeline {
                 always {
                     echo 'Publicando resultados JUnit y guardando Allure results...'
                     junit allowEmptyResults: true, testResults: '**/target/surefire-reports/*.xml'
-                    archiveArtifacts artifacts: 'allure-results/**', allowEmptyArchive: true, fingerprint: true
-                    stash name: 'allure-results', includes: 'allure-results/**', allowEmpty: true
+                    archiveArtifacts artifacts: 'target/allure-results/**', allowEmptyArchive: true, fingerprint: true
+                    stash name: 'allure-results', includes: 'target/allure-results/**', allowEmpty: true
                 }
             }
         }
 
+        // Exporta resultados para el contenedor Allure (4040)
         stage('Export Allure for 4040 (controller)') {
             agent { label 'built-in' }
             steps {
-                echo 'Exportando allure-results a carpeta persistente del controlador...'
-                dir('allure-export') {
-                    unstash 'allure-results'
-                }
+                echo 'Exportando target/allure-results a carpeta persistente del controlador...'
+                dir('allure-export') { unstash 'allure-results' }
                 sh """
                   mkdir -p "\${JENKINS_HOME}/allure-share/ecommerce-web-automation"
                   rm -rf "\${JENKINS_HOME}/allure-share/ecommerce-web-automation/*" || true
-                  cp -r allure-export/allure-results/* "\${JENKINS_HOME}/allure-share/ecommerce-web-automation/" || true
+                  cp -r allure-export/target/allure-results/* "\${JENKINS_HOME}/allure-share/ecommerce-web-automation/" || true
                   ls -la "\${JENKINS_HOME}/allure-share/ecommerce-web-automation/" || true
                 """
             }
@@ -80,7 +79,7 @@ pipeline {
                 allure commandline: 'allure-2.35.1',
                        includeProperties: false,
                        jdk: '',
-                       results: [[path: 'allure-results']]
+                       results: [[path: 'target/allure-results']]
             }
         }
     }

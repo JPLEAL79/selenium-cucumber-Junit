@@ -22,26 +22,20 @@ pipeline {
     }
 
     options {
-        buildDiscarder(logRotator(numToKeepStr: '5'))   // conserva solo 5 builds
-        disableConcurrentBuilds()                      // evita builds en paralelo
-        timestamps()                                   // timestamps en logs
+        buildDiscarder(logRotator(numToKeepStr: '20')) // conserva solo 20 builds
+        disableConcurrentBuilds()                     // evita builds en paralelo
+        timestamps()                                  // timestamps en logs
     }
 
     stages {
 
-        stage('Checkout Code') {
-            steps {
-                echo 'Clonando código desde GitHub...'
-                git branch: 'feature/jenkins-pipeline-integration',
-                    url: 'https://github.com/JPLEAL79/selenium-cucumber-Junit.git',
-                    credentialsId: 'github-jenkins-ci'
-            }
-        }
-
-        stage('Clean Workspace') {
+        stage('Clean previous reports') {
             steps {
                 echo 'Limpieza previa de artefactos antiguos...'
-                sh 'rm -rf allure-results target/allure-results target/allure-report target/surefire-reports || true'
+                sh '''
+                  rm -rf allure-results allure-report target/surefire-reports target/allure-results target/allure-report || true
+                  mkdir -p allure-results
+                '''
             }
         }
 
@@ -55,7 +49,6 @@ pipeline {
         stage('Run Automated Tests') {
             steps {
                 echo 'Ejecutando pruebas (Cucumber + JUnit) contra el Selenium Grid...'
-                // Pasamos la URL del Grid por -D (tu Hooks ya la lee por -D y/o ENV)
                 sh "mvn -B test -Dselenium.grid.url=${SELENIUM_GRID_URL} -Dgrid.url=${SELENIUM_GRID_URL} -Dbrowser=chrome -Dmaven.test.failure.ignore=true"
             }
             post {
@@ -70,8 +63,8 @@ pipeline {
         stage('Allure Report') {
             steps {
                 echo 'Publicando reporte Allure...'
-                // El plugin de Jenkins lee directamente "allure-results/"
-                allure includeProperties: false,
+                allure commandline: 'allure-2.35.1',
+                       includeProperties: false,
                        jdk: '',
                        results: [[path: 'allure-results']]
             }

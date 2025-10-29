@@ -73,15 +73,18 @@ pipeline {
             }
         }
 
-        stage('Allure Report') {
-            steps {
-                echo 'Publicando reporte Allure...'
-                allure commandline: 'allure-2.35.1',
-                       includeProperties: false,
-                       jdk: '',
-                       results: [[path: 'allure-results']]
-            }
+        stage('Export Allure for 4040') {
+          steps {
+            echo 'Exportando allure-results a carpeta persistente...'
+            sh """
+              mkdir -p "\${JENKINS_HOME}/allure-share/ecommerce-web-automation"
+              rm -rf "\${JENKINS_HOME}/allure-share/ecommerce-web-automation/*" || true
+              cp -r allure-results/* "\${JENKINS_HOME}/allure-share/ecommerce-web-automation/" || true
+              ls -la "\${JENKINS_HOME}/allure-share/ecommerce-web-automation/" || true
+            """
+          }
         }
+
     }
 
     post {

@@ -23,8 +23,8 @@ pipeline {
 
     options {
         buildDiscarder(logRotator(numToKeepStr: '20')) // conserva solo 20 builds
-        disableConcurrentBuilds()                     // evita builds en paralelo
-        timestamps()                                  // timestamps en logs
+        disableConcurrentBuilds()                      // evita builds en paralelo
+        timestamps()                                   // timestamps en logs
     }
 
     stages {
@@ -60,6 +60,19 @@ pipeline {
             }
         }
 
+        // Exporta resultados a carpeta persistente leída por el contenedor Allure (4040)
+        stage('Export Allure for 4040') {
+            steps {
+                echo 'Exportando allure-results a carpeta persistente...'
+                sh """
+                  mkdir -p "\${JENKINS_HOME}/allure-share/\${JOB_NAME}"
+                  rm -rf "\${JENKINS_HOME}/allure-share/\${JOB_NAME}/*" || true
+                  cp -r allure-results/* "\${JENKINS_HOME}/allure-share/\${JOB_NAME}/" || true
+                  ls -la "\${JENKINS_HOME}/allure-share/\${JOB_NAME}/" || true
+                """
+            }
+        }
+
         stage('Allure Report') {
             steps {
                 echo 'Publicando reporte Allure...'
@@ -74,7 +87,7 @@ pipeline {
     post {
         always {
             echo 'Limpieza final del workspace...'
-            cleanWs()
+            cleanWs() // deja el workspace limpio después de exportar
         }
         success { echo 'Pipeline finalizado OK.' }
         failure { echo 'Pipeline falló. Revisa la consola.' }

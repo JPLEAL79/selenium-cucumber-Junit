@@ -53,19 +53,16 @@ pipeline {
                     echo 'Publicando resultados JUnit y guardando Allure results...'
                     junit allowEmptyResults: true, testResults: '**/target/surefire-reports/*.xml'
                     archiveArtifacts artifacts: 'allure-results/**', allowEmptyArchive: true, fingerprint: true
-                    // 1) Stash resultados para moverlos en el controlador
                     stash name: 'allure-results', includes: 'allure-results/**', allowEmpty: true
                 }
             }
         }
 
-        // 2) Unstash en el controlador (built-in) y copiar a ${JENKINS_HOME}
         stage('Export Allure for 4040 (controller)') {
-            agent { label 'built-in' } // corre en el controlador, no en el contenedor del agente
+            agent { label 'built-in' }
             steps {
                 echo 'Exportando allure-results a carpeta persistente del controlador...'
                 dir('allure-export') {
-                    // Trae lo stasheado desde el agente
                     unstash 'allure-results'
                 }
                 sh """

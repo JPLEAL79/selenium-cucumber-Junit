@@ -48,9 +48,15 @@ Levantar el entorno con Docker Compose.
 
 -docker-compose up --build
 
-Ejecutar las pruebas
-- mvn clean test
+Ejecuciones de las pruebas
 
--
+Desde Windows / IntelliJ
+- mvn clean test -Dbrowser=chrome -DseleniumGridUrl=http://localhost:4444/wd/hub
+- mvn clean test -Dbrowser=firefox -DseleniumGridUrl=http://localhost:4444/wd/hub
+
+Desde Docker
+-	docker exec -it jdk-maven sh -c "mvn clean test -Dbrowser=chrome -DseleniumGridUrl=http://selenium-hub:4444/wd/hub"
+-	docker exec -it jdk-maven sh -c "mvn clean test -Dbrowser=firefox -DseleniumGridUrl=http://selenium-hub:4444/wd/hub"
+
 
 

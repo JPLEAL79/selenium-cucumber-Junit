@@ -8,8 +8,7 @@ services:
     ports:
       - "4040:4040"                             # Puerto para la interfaz web
     volumes:
-      #  Ruta absoluta en Windows (ajústala si tu usuario o carpeta difiere)
-      - "C:\\Users\\averg\\repoJP\\Automation\\selenium-cucumber-Junit\\target\\allure-results:/app/allure-results"
+      - "C:\\jenkins\\data\\allure-share\\ecommerce-web-automation:/app/allure-results"
     networks:
       - selenium-grid                           # Conecta al Grid
     restart: unless-stopped                     # Reinicia si falla

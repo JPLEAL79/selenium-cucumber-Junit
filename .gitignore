@@ -1,43 +1,21 @@
-# =========================
-# Maven
-# =========================
+# Build / IDE
 target/
-!.mvn/wrapper/maven-wrapper.jar
-
-# =========================
-# IntelliJ IDEA
-# =========================
 .idea/
 *.iml
-out/
 
-# =========================
-# VS Code
-# =========================
-.vscode/
-
-# =========================
-# Allure
-# =========================
-.allure/
+# Reports & Screenshots
 allure-results/
 allure-report/
-target/allure-results/
-target/allure-report/
+reports/
+screenshots/
 
-# =========================
-# Logs / Temp
-# =========================
-*.log
-*.tmp
+# Env / Credentials
+.env
+settings.xml
+*.pem
+*.key
+*.jks
 
-# =========================
-# Docker
-# =========================
-docker-compose.override.yml
-
-# =========================
-# OS junk
-# =========================
+# Sistema operativo
 .DS_Store
 Thumbs.db

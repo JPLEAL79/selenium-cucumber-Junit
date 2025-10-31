@@ -1,8 +1,8 @@
 /**
- *Autor: Juan Pablo Leal
+ * Autor: Juan Pablo Leal
  * Jenkinsfile – Selenium + Cucumber + JUnit + Allure
- * Pipeline declarativo para ejecutar pruebas dentro del contenedor jdk-maven,
- * conectado a la red del Selenium Grid.
+ * Pipeline declarativo para ejecutar pruebas dentro del contenedor Docker jdk-maven,
+ * publicar reportes Allure en Jenkins y compartirlos con el contenedor allure-reports (4040).
  */
 
 pipeline {
@@ -16,6 +16,9 @@ pipeline {
 
     environment {
         SELENIUM_GRID_URL = 'http://selenium-hub:4444/wd/hub'
+        ALLURE_TOOL = 'Allure_2.35.1'
+        ALLURE_RESULTS = 'allure-results'
+        ALLURE_SHARE = '/var/jenkins_home/allure-share/ecommerce-web-automation'
     }
 
     options {
@@ -28,9 +31,9 @@ pipeline {
 
         stage('Clean previous reports') {
             steps {
-                echo 'Limpieza previa de artefactos antiguos...'
+                echo 'Limpieza previa de reportes antiguos...'
                 sh '''
-                  rm -rf allure-results allure-report target/surefire-reports target/allure-results target/allure-report || true
+                  rm -rf allure-results allure-report target || true
                   mkdir -p allure-results
                 '''
             }
@@ -38,7 +41,7 @@ pipeline {
 
         stage('Build & Dependencies') {
             steps {
-                echo 'Compilando y resolviendo dependencias...'
+                echo 'Compilando proyecto y resolviendo dependencias Maven...'
                 sh 'mvn -B -U clean compile -Dmaven.test.failure.ignore=true'
             }
         }
@@ -46,44 +49,45 @@ pipeline {
         stage('Run Automated Tests') {
             steps {
                 echo 'Ejecutando pruebas (Cucumber + JUnit) contra el Selenium Grid...'
-                sh "mvn -B test -Dselenium.grid.url=${SELENIUM_GRID_URL} -Dgrid.url=${SELENIUM_GRID_URL} -Dbrowser=chrome -Dmaven.test.failure.ignore=true"
+                sh "mvn -B test -DseleniumGridUrl=${SELENIUM_GRID_URL} -Dmaven.test.failure.ignore=true"
             }
             post {
                 always {
-                    echo 'Publicando resultados JUnit y guardando Allure results...'
+                    echo 'Guardando resultados JUnit y Allure...'
                     junit allowEmptyResults: true, testResults: '**/target/surefire-reports/*.xml'
-                    // guarda cualquier resultado Allure que exista
                     archiveArtifacts artifacts: 'allure-results/**', allowEmptyArchive: true, fingerprint: true
-                    // stash para exportar en el controlador
                     stash name: 'allure-results', includes: 'allure-results/**', allowEmpty: true
                 }
             }
         }
 
-        // Exporta resultados para el contenedor Allure (4040)
-        stage('Export Allure for 4040 (controller)') {
-            agent { label 'built-in' }
+        stage('Export Allure Results for 4040') {
+            agent { label 'built-in' } // Se ejecuta dentro del contenedor Jenkins
             steps {
-                echo 'Exportando allure-results a carpeta persistente del controlador...'
+                echo 'Exportando resultados hacia carpeta compartida persistente...'
                 dir('allure-export') { unstash 'allure-results' }
-                sh """
-                  mkdir -p "\${JENKINS_HOME}/allure-share/ecommerce-web-automation"
-                  rm -rf "\${JENKINS_HOME}/allure-share/ecommerce-web-automation/*" || true
-                  cp -r allure-export/allure-results/* "\${JENKINS_HOME}/allure-share/ecommerce-web-automation/" || true
-                  ls -la "\${JENKINS_HOME}/allure-share/ecommerce-web-automation/" || true
-                """
+                sh '''
+                  echo "Copiando resultados desde workspace a volumen compartido..."
+                  mkdir -p /var/jenkins_home/allure-share/ecommerce-web-automation
+                  rm -rf /var/jenkins_home/allure-share/ecommerce-web-automation/* || true
+                  cp -r allure-export/allure-results/* /var/jenkins_home/allure-share/ecommerce-web-automation/ || true
+                  ls -la /var/jenkins_home/allure-share/ecommerce-web-automation/ || true
+                '''
             }
         }
 
-        stage('Allure Report (Jenkins)') {
+        stage('Publish Allure Report in Jenkins') {
+            agent { label 'built-in' } // Usa la tool de Allure instalada en Jenkins
             steps {
-                echo 'Publicando reporte Allure en Jenkins...'
+                echo 'Generando reporte Allure dentro de Jenkins...'
                 script {
                     catchError(buildResult: 'UNSTABLE', stageResult: 'UNSTABLE') {
-                        allure commandline: 'allure-2.35.1',
-                               includeProperties: false,
-                               jdk: '',
-                               results: [[path: 'allure-results']]
+                        allure(
+                            includeProperties: false,
+                            jdk: '',
+                            tool: "${ALLURE_TOOL}",
+                            results: [[path: "${ALLURE_RESULTS}"]]
+                        )
                     }
                 }
             }
@@ -95,7 +99,8 @@ pipeline {
             echo 'Limpieza final del workspace...'
             cleanWs()
         }
-        success { echo 'Pipeline finalizado OK.' }
-        failure { echo 'Pipeline falló. Revisa la consola.' }
+        success { echo 'Pipeline finalizado con éxito.' }
+        unstable { echo 'Pipeline finalizó UNSTABLE: revisa los reportes.' }
+        failure { echo 'Pipeline falló: revisar errores de ejecución.' }
     }
 }

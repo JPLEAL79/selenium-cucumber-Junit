@@ -1,20 +1,20 @@
+version: '3.8'
+
 services:
   allure-reports:
+    container_name: allure-reports
     build:
       context: .
-      dockerfile: Dockerfile-allure-reports     # Usa tu Dockerfile de Allure
-    image: allure-reports                       # Nombre de la imagen
-    container_name: allure-reports              # Nombre del contenedor
+      dockerfile: Dockerfile-allure-reports
+    image: allure-reports
     ports:
-      - "4040:4040"                             # Puerto para la interfaz web
+      - "4040:4040"
     volumes:
-      - "C:\\jenkins\\data\\allure-share\\ecommerce-web-automation:/app/allure-results"
+      - "C:/jenkins/data/allure-share/ecommerce-web-automation:/app/allure-results"
+    restart: always
     networks:
-      - selenium-grid                           # Conecta al Grid
-    restart: unless-stopped                     # Reinicia si falla
-    command: >
-      sh -c "allure serve /app/allure-results --host 0.0.0.0 --port 4040"
+      - selenium-grid
 
 networks:
   selenium-grid:
-    external: true                              # Usa la red del compose principal
+    external: true

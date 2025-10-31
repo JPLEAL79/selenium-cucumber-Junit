@@ -1,80 +1,79 @@
-version: "3.9"
+version: '3.8'
 
 services:
   selenium-hub:
     image: selenium/hub:4.8.0
-    container_name: selenium-hub # Nombre del contenedor del Hub.
+    container_name: selenium-hub
     ports:
-      - "4444:4444"  # Exponer el puerto principal del Hub
-    environment:
-      - SE_EVENT_BUS_HOST=selenium-hub     # Dirección del Hub
-      - SE_EVENT_BUS_PUBLISH_PORT=4442     # Puerto para publicar eventos
-      - SE_EVENT_BUS_SUBSCRIBE_PORT=4443   # Puerto para suscribirse a eventos
+      - "4444:4444"
     networks:
-      - selenium-grid                      # Conectado a la red común
-    restart: unless-stopped                # Reinicia automáticamente al reiniciar Docker
+      - selenium-grid
+    restart: unless-stopped
 
   chrome-node:
     image: selenium/node-chrome:4.8.0
-    container_name: chrome-node            # Nombre del contenedor Chrome
-    depends_on:
-      - selenium-hub                       # Inicia después del Hub
+    container_name: chrome-node
+    shm_size: "2g"
+    depends_on: [selenium-hub]
     environment:
-      - HUB_HOST=selenium-hub
-      - HUB_PORT=4444
       - SE_EVENT_BUS_HOST=selenium-hub
       - SE_EVENT_BUS_PUBLISH_PORT=4442
       - SE_EVENT_BUS_SUBSCRIBE_PORT=4443
-      - SE_NODE_MAX_SESSIONS=2             # Máx. 2 sesiones concurrentes
-      - VNC_NO_PASSWORD=1
     ports:
-      - "5555:5555"                        # Puerto del nodo Chrome
-      - "5900:5900"                        # Puerto VNC (para ver el navegador)
+      - "5555:5555"
+      - "5900:5900"
     networks:
       - selenium-grid
     restart: unless-stopped
 
   firefox-node:
     image: selenium/node-firefox:4.8.0
-    container_name: firefox-node           # Nombre del contenedor Firefox
-    depends_on:
-      - selenium-hub
+    container_name: firefox-node
+    shm_size: "2g"
+    depends_on: [selenium-hub]
     environment:
-      - HUB_HOST=selenium-hub
-      - HUB_PORT=4444
       - SE_EVENT_BUS_HOST=selenium-hub
       - SE_EVENT_BUS_PUBLISH_PORT=4442
       - SE_EVENT_BUS_SUBSCRIBE_PORT=4443
-      - SE_NODE_MAX_SESSIONS=2
-      - VNC_NO_PASSWORD=1
     ports:
-      - "5556:5555"                        # Puerto del nodo Firefox
-      - "5901:5900"                        # Puerto VNC Firefox
+      - "5556:5555"
+      - "5901:5901"
     networks:
       - selenium-grid
     restart: unless-stopped
 
   jenkins:
     image: jenkins/jenkins:lts
-    container_name: jenkins                # Nombre del contenedor Jenkins
-    privileged: true
+    container_name: jenkins
     user: root
+    # PUERTO 8080 expuesto (mantener)
     ports:
-      - "8080:8080"                        # Puerto UI Jenkins
-      - "50000:50000"                      # Puerto para agentes
+      - "8080:8080"
+      - "50000:50000"
+    # Mapea el share de Allure para que Jenkins pueda copiar ahí los JSON
     volumes:
-      - jenkins_home:/var/jenkins_home     # Datos persistentes
-      - /var/run/docker.sock:/var/run/docker.sock
+      - "C:/jenkins/data:/var/jenkins_home"
+      - "C:/jenkins/data/allure-share/ecommerce-web-automation:/var/jenkins_home/allure-share/ecommerce-web-automation"
     networks:
       - selenium-grid
     restart: unless-stopped
 
-# Red fija compartida entre todos los contenedores
+  jdk-maven:
+    build:
+      context: .
+      dockerfile: Dockerfile-jdk-maven
+    image: jdk-maven
+    container_name: jdk-maven
+    # Monta el MISMO share de host para copiar los JSON DIRECTO desde el agent
+    volumes:
+      - "C:/jenkins/data/allure-share/ecommerce-web-automation:/allure-share"
+    networks:
+      - selenium-grid
+    restart: unless-stopped
+
+    command: >
+      sh -c "while true; do mvn clean test; echo 'Ejecución finalizada, esperando 60s antes de reiniciar...'; sleep 60; done"
+
 networks:
   selenium-grid:
-    name: selenium-grid                    # Nombre fijo (evita el prefijo del proyecto)
-    driver: bridge
-
-# Volumen persistente para Jenkins
-volumes:
-  jenkins_home:
+    external: true

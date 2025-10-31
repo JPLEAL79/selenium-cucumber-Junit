@@ -9,6 +9,7 @@ services:
     image: allure-reports
     ports:
       - "4040:4040"
+    # MISMA ruta de host que usan jenkins y jdk-maven
     volumes:
       - "C:/jenkins/data/allure-share/ecommerce-web-automation:/app/allure-results"
     restart: always

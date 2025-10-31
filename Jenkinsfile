@@ -16,8 +16,8 @@ pipeline {
 
     environment {
         SELENIUM_GRID_URL = 'http://selenium-hub:4444/wd/hub'
-        ALLURE_TOOL = 'Allure_2.35.1'
-        ALLURE_RESULTS = 'allure-results'
+        ALLURE_TOOL = 'Allure_2.35.1'                // Nombre EXACTO de la Tool en Jenkins (Manage Jenkins > Tools)
+        ALLURE_RESULTS = 'allure-results'            // Carpeta generada por los tests
         ALLURE_SHARE = '/var/jenkins_home/allure-share/ecommerce-web-automation'
     }
 
@@ -62,7 +62,7 @@ pipeline {
         }
 
         stage('Export Allure Results for 4040') {
-            agent { label 'built-in' } // Se ejecuta dentro del contenedor Jenkins
+            agent { label 'built-in' } // Ejecuta en el contenedor Jenkins
             steps {
                 echo 'Exportando resultados hacia carpeta compartida persistente...'
                 dir('allure-export') { unstash 'allure-results' }
@@ -77,15 +77,18 @@ pipeline {
         }
 
         stage('Publish Allure Report in Jenkins') {
-            agent { label 'built-in' } // Usa la tool de Allure instalada en Jenkins
+            agent { label 'built-in' }                 // Ejecuta donde está instalada la Tool Allure
+            environment { PATH = "/opt/allure-2.35.1/bin:${PATH}" } // Sanity path
             steps {
                 echo 'Generando reporte Allure dentro de Jenkins...'
+                sh '/opt/allure-2.35.1/bin/allure --version'        // Sanity check para evitar exit 127
+
                 script {
                     catchError(buildResult: 'UNSTABLE', stageResult: 'UNSTABLE') {
                         allure(
                             includeProperties: false,
                             jdk: '',
-                            tool: "${ALLURE_TOOL}",
+                            commandline: "${ALLURE_TOOL}",          // <<< usar commandline (no 'tool')
                             results: [[path: "${ALLURE_RESULTS}"]]
                         )
                     }

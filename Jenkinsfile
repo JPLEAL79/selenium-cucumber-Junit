@@ -1,157 +1,63 @@
-/**
+/*
+ * Jenkinsfile - Pipeline CI/CD para automatización con Selenium Cucumber JUnit
  * Autor: Juan Pablo Leal
- * Jenkinsfile – Selenium + Cucumber + JUnit + Allure
- * Corre en el contenedor Jenkins, ejecuta pruebas, publica JUnit,
- * copia JSON al share del host y genera Allure (CLI y plugin protegido).
+ * Descripción:
+ * Ejecuta pruebas en Selenium Grid usando Chrome y Firefox,
+ * elimina reportes Allure antiguos, genera nuevos reportes
+ * y limpia el workspace después de la ejecución.
  */
 
 pipeline {
+  agent any
+  tools {
+    jdk 'jdk-17'
+    maven 'maven-3.9.11'
+  }
 
-    agent any
+  options {
+    skipDefaultCheckout(false)
+    buildDiscarder(logRotator(numToKeepStr: '10'))
+    timestamps()
+  }
 
-    environment {
-        SELENIUM_GRID_URL = 'http://selenium-hub:4444/wd/hub'
-        // === AJUSTE CLAVE: Tu POM usa target/allure-results ===
-        ALLURE_RESULTS = 'target/allure-results'
-        ALLURE_SHARE   = '/var/jenkins_home/allure-share/ecommerce-web-automation'
+  environment {
+    GRID_URL = 'http://selenium-hub:4444/wd/hub'
+  }
+
+  stages {
+    stage('Limpiar reportes antiguos') {
+      steps {
+        echo 'Eliminando reportes Allure anteriores...'
+        sh 'rm -rf target/allure-results target/allure-report || true'
+      }
     }
 
-    options {
-        buildDiscarder(logRotator(numToKeepStr: '20'))
-        disableConcurrentBuilds()
-        timestamps()
+    stage('Compilar y ejecutar pruebas (Chrome y Firefox)') {
+      matrix {
+        axes {
+          axis { name 'BROWSER'; values 'chrome', 'firefox' }
+        }
+        stages {
+          stage('Ejecución de pruebas') {
+            steps {
+              echo "Ejecutando pruebas en ${BROWSER}..."
+              sh 'mvn -B clean test -Dbrowser=${BROWSER} -DseleniumGridUrl=${GRID_URL}'
+            }
+          }
+        }
+      }
     }
+  }
 
-    stages {
-
-        stage('Clean previous reports') {
-            steps {
-                echo 'Limpieza previa de reportes antiguos...'
-                sh '''
-                  rm -rf allure-results target/allure-results allure-report target/surefire-reports target || true
-                  mkdir -p target/allure-results
-                '''
-            }
-        }
-
-        stage('Build & Dependencies') {
-            steps {
-                echo 'Compilando y resolviendo dependencias...'
-                sh '''
-                  set -e
-                  if ! command -v mvn >/dev/null 2>&1; then
-                    apt-get update -y && apt-get install -y maven wget unzip curl
-                  fi
-                  if ! command -v allure >/dev/null 2>&1; then
-                    mkdir -p /opt && cd /opt
-                    wget -q https://github.com/allure-framework/allure2/releases/download/2.35.1/allure-2.35.1.tgz
-                    tar -zxf allure-2.35.1.tgz && mv allure-2.35.1 allure
-                    ln -sf /opt/allure/bin/allure /usr/local/bin/allure
-                  fi
-                  mkdir -p "${ALLURE_SHARE}"
-                '''
-                sh 'mvn -B -U clean compile -Dmaven.test.failure.ignore=true'
-            }
-        }
-
-        stage('Run Automated Tests') {
-            steps {
-                echo 'Ejecutando pruebas contra Selenium Grid...'
-                // Hooks exige EXACTO -DseleniumGridUrl
-                // === AJUSTE CLAVE: Forzar ejecución de runners ===
-                sh "mvn -B test -Dtest=*Runner -DseleniumGridUrl=${SELENIUM_GRID_URL} -Dmaven.test.failure.ignore=true"
-            }
-            post {
-                always {
-                    echo 'Publicando JUnit y archivando JSON de Allure...'
-                    // Surefire por defecto deja XML en target/surefire-reports/*
-                    junit allowEmptyResults: true, testResults: 'target/surefire-reports/*.xml'
-                    // === AJUSTE: archivar la ruta correcta de Allure ===
-                    archiveArtifacts artifacts: 'target/allure-results/**', allowEmptyArchive: true, fingerprint: true
-                    // Diagnóstico si no hay resultados
-                    sh 'ls -la target || true'
-                    sh 'ls -la target/surefire-reports 2>/dev/null || true'
-                    sh 'ls -la target/allure-results 2>/dev/null || true'
-                }
-            }
-        }
-
-        stage('Export JSON to shared volume (4040)') {
-            steps {
-                echo 'Copiando JSON a volumen compartido del host...'
-                sh '''
-                  mkdir -p "${ALLURE_SHARE}"
-                  rm -rf "${ALLURE_SHARE:?}"/* || true
-                  cp -r "${ALLURE_RESULTS}"/* "${ALLURE_SHARE}/" 2>/dev/null || true
-                  ls -la "${ALLURE_SHARE}" || true
-                '''
-            }
-        }
-
-        stage('Generate Allure HTML (fallback)') {
-            steps {
-                echo 'Generando Allure HTML (fallback) en el mismo agente...'
-                sh '''
-                  set +e
-                  if ! command -v allure >/dev/null 2%;
-                  then
-                    echo "NO_ALLURE" > .allure_miss
-                    mkdir -p allure-report
-                    cat > allure-report/index.html <<'HTML'
-<html><body><h3>Allure CLI no disponible.</h3><p>Se generó placeholder para no fallar el build.</p></body></html>
-HTML
-                  else
-                    set -e
-                    rm -rf allure-report || true
-                    allure --version
-                    allure generate "${ALLURE_RESULTS}" -c -o allure-report
-                  fi
-                '''
-                script {
-                    if (fileExists('.allure_miss')) {
-                        currentBuild.result = 'UNSTABLE'
-                        echo 'Allure CLI ausente → Build marcado UNSTABLE. Se adjunta HTML placeholder.'
-                    }
-                }
-            }
-            post {
-                always {
-                    echo 'Archivando Allure HTML...'
-                    archiveArtifacts artifacts: 'allure-report/**', allowEmptyArchive: false, fingerprint: true
-                }
-            }
-        }
-
-        stage('Allure Plugin Integration (guarded)') {
-            steps {
-                echo 'Publicando resultados con el plugin Allure (protegido)...'
-                script {
-                    boolean hasAllure = fileExists("${env.ALLURE_RESULTS}") &&
-                        sh(returnStatus: true, script: 'test -n "$(ls -A ' + env.ALLURE_RESULTS + ' 2>/dev/null || true)"') == 0
-                    if (!hasAllure) {
-                        echo 'No hay target/allure-results; salto plugin.'
-                    } else {
-                        catchError(buildResult: 'UNSTABLE', stageResult: 'UNSTABLE') {
-                            allure([
-                                includeProperties: false,
-                                jdk: '',
-                                results: [[path: "${env.ALLURE_RESULTS}"]],
-                                reportBuildPolicy: 'ALWAYS'
-                            ])
-                        }
-                    }
-                }
-            }
-        }
+  post {
+    always {
+      echo 'Publicando reporte Allure...'
+      allure([
+        results: [[path: 'target/allure-results']],
+        reportBuildPolicy: 'ALWAYS'
+      ])
+      echo 'Limpiando workspace...'
+      cleanWs(deleteDirs: true, disableDeferredWipeout: true)
     }
-
-    post {
-        always {
-            echo 'Limpieza final del workspace...'
-            cleanWs()
-        }
-        success  { echo 'Pipeline finalizado con éxito.' }
-        unstable { echo 'Pipeline UNSTABLE: revisar reportes/errores.' }
-        failure  { echo 'Pipeline FALLÓ: revisar consola.' }
-    }
+  }
 }

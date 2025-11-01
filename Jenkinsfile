@@ -1,8 +1,8 @@
 /**
  * Autor: Juan Pablo Leal
  * Jenkinsfile – Selenium + Cucumber + JUnit + Allure
- * Corre en el contenedor Jenkins (sin agente Docker), publica JUnit,
- * copia JSON al share del host y genera Allure (plugin y/o HTML).
+ * Corre en el contenedor Jenkins, ejecuta pruebas, publica JUnit,
+ * copia JSON al share del host y genera Allure (CLI y plugin protegido).
  */
 
 pipeline {
@@ -10,11 +10,8 @@ pipeline {
     agent any
 
     environment {
-        // Dentro de Docker:
         SELENIUM_GRID_URL = 'http://selenium-hub:4444/wd/hub'
-        // Carpeta de resultados del framework:
         ALLURE_RESULTS = 'allure-results'
-        // Share real dentro de Jenkins -> C:\jenkins\data\allure-share\ecommerce-web-automation
         ALLURE_SHARE   = '/var/jenkins_home/allure-share/ecommerce-web-automation'
     }
 
@@ -39,7 +36,6 @@ pipeline {
         stage('Build & Dependencies') {
             steps {
                 echo 'Compilando y resolviendo dependencias...'
-                // Instala Maven/Allure si faltan en el contenedor Jenkins
                 sh '''
                   set -e
                   if ! command -v mvn >/dev/null 2>&1; then
@@ -60,7 +56,6 @@ pipeline {
         stage('Run Automated Tests') {
             steps {
                 echo 'Ejecutando pruebas contra Selenium Grid...'
-                // Hooks exige EXACTO -DseleniumGridUrl
                 sh "mvn -B test -DseleniumGridUrl=${SELENIUM_GRID_URL} -Dmaven.test.failure.ignore=true"
             }
             post {
@@ -68,6 +63,8 @@ pipeline {
                     echo 'Publicando JUnit y archivando JSON de Allure...'
                     junit allowEmptyResults: true, testResults: '**/target/surefire-reports/*.xml'
                     archiveArtifacts artifacts: 'allure-results/**', allowEmptyArchive: true, fingerprint: true
+                    // Diagnóstico si no hay resultados
+                    sh 'find . -maxdepth 3 -type d \\( -name "surefire-reports" -o -name "allure-results" \\) -print -exec ls -la {} \\; || true'
                 }
             }
         }
@@ -81,19 +78,6 @@ pipeline {
                   cp -r "${ALLURE_RESULTS}"/* "${ALLURE_SHARE}/" 2>/dev/null || true
                   ls -la "${ALLURE_SHARE}" || true
                 '''
-            }
-        }
-
-        stage('Allure Plugin Integration') {
-            steps {
-                echo 'Publicando resultados con el plugin Allure...'
-                // Requiere tener instalado "Allure Jenkins Plugin" (ya lo tienes)
-                allure([
-                    includeProperties: false,
-                    jdk: '',
-                    results: [[path: "allure-results"]],
-                    reportBuildPolicy: 'ALWAYS'
-                ])
             }
         }
 
@@ -112,7 +96,7 @@ HTML
                     set -e
                     rm -rf allure-report || true
                     allure --version
-                    allure generate "${ALLURE_RESULTS}" -c -o allure-report
+                    allure generate "allure-results" -c -o allure-report
                   fi
                 '''
                 script {
@@ -126,6 +110,27 @@ HTML
                 always {
                     echo 'Archivando Allure HTML...'
                     archiveArtifacts artifacts: 'allure-report/**', allowEmptyArchive: false, fingerprint: true
+                }
+            }
+        }
+
+        stage('Allure Plugin Integration (guarded)') {
+            steps {
+                echo 'Publicando resultados con el plugin Allure (protegido)...'
+                script {
+                    boolean hasAllure = fileExists('allure-results') && sh(returnStatus: true, script: 'test -n "$(ls -A allure-results 2>/dev/null || true)"') == 0
+                    if (!hasAllure) {
+                        echo 'No hay allure-results; salto plugin.'
+                    } else {
+                        catchError(buildResult: 'UNSTABLE', stageResult: 'UNSTABLE') {
+                            allure([
+                                includeProperties: false,
+                                jdk: '',
+                                results: [[path: "allure-results"]],
+                                reportBuildPolicy: 'ALWAYS'
+                            ])
+                        }
+                    }
                 }
             }
         }

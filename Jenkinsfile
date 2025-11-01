@@ -48,6 +48,7 @@ pipeline {
         stage('Run Automated Tests') {
             steps {
                 echo 'Ejecutando pruebas contra Selenium Grid...'
+                // Hooks exige EXACTO -DseleniumGridUrl
                 sh "mvn -B test -DseleniumGridUrl=${SELENIUM_GRID_URL} -Dmaven.test.failure.ignore=true"
             }
             post {
@@ -75,11 +76,26 @@ pipeline {
             steps {
                 echo 'Generando Allure HTML en el mismo agent...'
                 sh '''
-                  allure --version
-                  rm -rf allure-report || true
-                  allure generate "${ALLURE_RESULTS}" -c -o allure-report
-                  ls -la allure-report || true
+                  set +e
+                  if ! command -v allure >/dev/null 2>&1; then
+                    echo "NO_ALLURE" > .allure_miss
+                    mkdir -p allure-report
+                    cat > allure-report/index.html <<'HTML'
+<html><body><h3>Allure CLI no disponible en el agent.</h3><p>Se generó placeholder para no fallar el build.</p></body></html>
+HTML
+                  else
+                    rm -rf allure-report || true
+                    allure --version
+                    allure generate "${ALLURE_RESULTS}" -c -o allure-report
+                  fi
                 '''
+                // Si faltó Allure CLI, marcamos UNSTABLE (no FAIL)
+                script {
+                    if (fileExists('.allure_miss')) {
+                        currentBuild.result = 'UNSTABLE'
+                        echo 'Allure CLI ausente → Build marcado UNSTABLE. Se adjunta HTML placeholder.'
+                    }
+                }
             }
             post {
                 always {

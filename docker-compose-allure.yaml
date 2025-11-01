@@ -1,21 +1,21 @@
-version: '3.8'
-
-services:
-  allure-reports:
-    container_name: allure-reports
-    build:
-      context: .
-      dockerfile: Dockerfile-allure-reports
-    image: allure-reports
-    ports:
-      - "4040:4040"
-    # MISMA ruta de host que usan jenkins y jdk-maven
-    volumes:
-      - "C:/jenkins/data/allure-share/ecommerce-web-automation:/app/allure-results"
-    restart: always
-    networks:
-      - selenium-grid
+version: "3.8"
 
 networks:
   selenium-grid:
     external: true
+    name: selenium-grid
+
+services:
+  allure-reports:
+    build:
+      context: .
+      dockerfile: Dockerfile-allure-reports
+    image: allure-reports
+    container_name: allure-reports
+    restart: always
+    networks: [selenium-grid]
+    ports:
+      - "4040:4040"
+    volumes:
+      # Montaje EXACTO de la ruta compartida con los JSON:
+      - "C:\\jenkins\\data\\allure-share\\ecommerce-web-automation:/app/allure-results"

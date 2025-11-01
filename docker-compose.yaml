@@ -1,62 +1,64 @@
-version: '3.8'
+version: "3.8"
+
+networks:
+  selenium-grid:
+    name: selenium-grid
 
 services:
   selenium-hub:
     image: selenium/hub:4.8.0
     container_name: selenium-hub
+    restart: always
+    networks: [selenium-grid]
     ports:
       - "4444:4444"
-    networks:
-      - selenium-grid
-    restart: unless-stopped
+    environment:
+      - SE_OPTS=--log-level FINE
+    # Los puertos 4442/4443 son internos para nodos; no es necesario exponerlos al host.
 
   chrome-node:
     image: selenium/node-chrome:4.8.0
     container_name: chrome-node
-    shm_size: "2g"
+    restart: always
+    networks: [selenium-grid]
     depends_on: [selenium-hub]
+    shm_size: "2g"
     environment:
       - SE_EVENT_BUS_HOST=selenium-hub
       - SE_EVENT_BUS_PUBLISH_PORT=4442
       - SE_EVENT_BUS_SUBSCRIBE_PORT=4443
     ports:
-      - "5555:5555"
-      - "5900:5900"
-    networks:
-      - selenium-grid
-    restart: unless-stopped
+      - "5555:5555"   # mantener
+      - "5900:5900"   # VNC
 
   firefox-node:
     image: selenium/node-firefox:4.8.0
     container_name: firefox-node
-    shm_size: "2g"
+    restart: always
+    networks: [selenium-grid]
     depends_on: [selenium-hub]
+    shm_size: "2g"
     environment:
       - SE_EVENT_BUS_HOST=selenium-hub
       - SE_EVENT_BUS_PUBLISH_PORT=4442
       - SE_EVENT_BUS_SUBSCRIBE_PORT=4443
     ports:
-      - "5556:5555"
-      - "5901:5901"
-    networks:
-      - selenium-grid
-    restart: unless-stopped
+      - "5556:5555"   # mantener (host 5556 → cont 5555)
+      - "5901:5901"   # VNC
 
   jenkins:
     image: jenkins/jenkins:lts
     container_name: jenkins
+    restart: always
+    networks: [selenium-grid]
     user: root
-    # PUERTO 8080 expuesto (mantener)
     ports:
       - "8080:8080"
-      - "50000:50000"
-    # Mapea el share de Allure para que Jenkins pueda copiar ahí los JSON
     volumes:
-      - "C:/jenkins/data:/var/jenkins_home"
-      - "C:/jenkins/data/allure-share/ecommerce-web-automation:/var/jenkins_home/allure-share/ecommerce-web-automation"
-    networks:
-      - selenium-grid
-    restart: unless-stopped
+      # Backup/estado completo de Jenkins en host (mantener ruta):
+      - "C:\\jenkins\\data:/var/jenkins_home"
+      # Opcional: docker.sock solo si luego usas agentes docker dentro de Jenkins
+      # - "/var/run/docker.sock:/var/run/docker.sock"
 
   jdk-maven:
     build:
@@ -64,16 +66,11 @@ services:
       dockerfile: Dockerfile-jdk-maven
     image: jdk-maven
     container_name: jdk-maven
-    # Monta el MISMO share de host para copiar los JSON DIRECTO desde el agent
+    restart: always
+    networks: [selenium-grid]
+    working_dir: /workspace
     volumes:
-      - "C:/jenkins/data/allure-share/ecommerce-web-automation:/allure-share"
-    networks:
-      - selenium-grid
-    restart: unless-stopped
-
-    command: >
-      sh -c "while true; do mvn clean test; echo 'Ejecución finalizada, esperando 60s antes de reiniciar...'; sleep 60; done"
-
-networks:
-  selenium-grid:
-    external: true
+      # Monta el repo de trabajo actual al contenedor (para ejecutar mvn dentro):
+      - .:/workspace
+      # Monta el share Allure EXACTO para exportar JSON desde los jobs/manual:
+      - "C:\\jenkins\\data\\allure-share\\ecommerce-web-automation:/allure-share"

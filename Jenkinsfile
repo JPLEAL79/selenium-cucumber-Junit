@@ -1,23 +1,21 @@
 /**
  * Autor: Juan Pablo Leal
  * Jenkinsfile – Selenium + Cucumber + JUnit + Allure
- * Ejecuta pruebas en jdk-maven, copia JSON al share de host y genera HTML de Allure en el mismo agent.
+ * Corre en el contenedor Jenkins (sin agente Docker), publica JUnit,
+ * copia JSON al share del host y genera Allure (plugin y/o HTML).
  */
 
 pipeline {
 
-    agent {
-        docker {
-            image 'jdk-maven'
-            // Red del Grid y usuario root (sin tocar)
-            args '--network=selenium-grid -u root -v C:/jenkins/data/allure-share/ecommerce-web-automation:/allure-share'
-        }
-    }
+    agent any
 
     environment {
+        // Dentro de Docker:
         SELENIUM_GRID_URL = 'http://selenium-hub:4444/wd/hub'
-        ALLURE_RESULTS = 'allure-results'   // carpeta generada por tests
-        ALLURE_SHARE   = '/allure-share'    // punto de montaje del host dentro del agent
+        // Carpeta de resultados del framework:
+        ALLURE_RESULTS = 'allure-results'
+        // Share real dentro de Jenkins -> C:\jenkins\data\allure-share\ecommerce-web-automation
+        ALLURE_SHARE   = '/var/jenkins_home/allure-share/ecommerce-web-automation'
     }
 
     options {
@@ -41,6 +39,20 @@ pipeline {
         stage('Build & Dependencies') {
             steps {
                 echo 'Compilando y resolviendo dependencias...'
+                // Instala Maven/Allure si faltan en el contenedor Jenkins
+                sh '''
+                  set -e
+                  if ! command -v mvn >/dev/null 2>&1; then
+                    apt-get update -y && apt-get install -y maven wget unzip curl
+                  fi
+                  if ! command -v allure >/dev/null 2>&1; then
+                    mkdir -p /opt && cd /opt
+                    wget -q https://github.com/allure-framework/allure2/releases/download/2.35.1/allure-2.35.1.tgz
+                    tar -zxf allure-2.35.1.tgz && mv allure-2.35.1 allure
+                    ln -sf /opt/allure/bin/allure /usr/local/bin/allure
+                  fi
+                  mkdir -p "${ALLURE_SHARE}"
+                '''
                 sh 'mvn -B -U clean compile -Dmaven.test.failure.ignore=true'
             }
         }
@@ -53,7 +65,7 @@ pipeline {
             }
             post {
                 always {
-                    echo 'Publicando JUnit y artefactos Allure JSON...'
+                    echo 'Publicando JUnit y archivando JSON de Allure...'
                     junit allowEmptyResults: true, testResults: '**/target/surefire-reports/*.xml'
                     archiveArtifacts artifacts: 'allure-results/**', allowEmptyArchive: true, fingerprint: true
                 }
@@ -66,30 +78,43 @@ pipeline {
                 sh '''
                   mkdir -p "${ALLURE_SHARE}"
                   rm -rf "${ALLURE_SHARE:?}"/* || true
-                  cp -r "${ALLURE_RESULTS}"/* "${ALLURE_SHARE}/" || true
+                  cp -r "${ALLURE_RESULTS}"/* "${ALLURE_SHARE}/" 2>/dev/null || true
                   ls -la "${ALLURE_SHARE}" || true
                 '''
             }
         }
 
-        stage('Generate Allure HTML (inside jdk-maven)') {
+        stage('Allure Plugin Integration') {
             steps {
-                echo 'Generando Allure HTML en el mismo agent...'
+                echo 'Publicando resultados con el plugin Allure...'
+                // Requiere tener instalado "Allure Jenkins Plugin" (ya lo tienes)
+                allure([
+                    includeProperties: false,
+                    jdk: '',
+                    results: [[path: "allure-results"]],
+                    reportBuildPolicy: 'ALWAYS'
+                ])
+            }
+        }
+
+        stage('Generate Allure HTML (fallback)') {
+            steps {
+                echo 'Generando Allure HTML (fallback) en el mismo agente...'
                 sh '''
                   set +e
                   if ! command -v allure >/dev/null 2>&1; then
                     echo "NO_ALLURE" > .allure_miss
                     mkdir -p allure-report
                     cat > allure-report/index.html <<'HTML'
-<html><body><h3>Allure CLI no disponible en el agent.</h3><p>Se generó placeholder para no fallar el build.</p></body></html>
+<html><body><h3>Allure CLI no disponible.</h3><p>Se generó placeholder para no fallar el build.</p></body></html>
 HTML
                   else
+                    set -e
                     rm -rf allure-report || true
                     allure --version
                     allure generate "${ALLURE_RESULTS}" -c -o allure-report
                   fi
                 '''
-                // Si faltó Allure CLI, marcamos UNSTABLE (no FAIL)
                 script {
                     if (fileExists('.allure_miss')) {
                         currentBuild.result = 'UNSTABLE'
@@ -111,8 +136,8 @@ HTML
             echo 'Limpieza final del workspace...'
             cleanWs()
         }
-        success { echo 'Pipeline finalizado con éxito.' }
+        success  { echo 'Pipeline finalizado con éxito.' }
         unstable { echo 'Pipeline UNSTABLE: revisar reportes/errores.' }
-        failure { echo 'Pipeline FALLÓ: revisar consola.' }
+        failure  { echo 'Pipeline FALLÓ: revisar consola.' }
     }
 }

@@ -1,19 +1,13 @@
 /*
- * Jenkinsfile - Pipeline CI/CD para automatización con Selenium Cucumber JUnit
+ * Jenkinsfile - Pipeline CI/CD para Selenium Cucumber JUnit
  * Autor: Juan Pablo Leal
  * Descripción:
- * - Ejecuta pruebas contra Selenium Grid en un solo navegador (parametrizable).
- * - Elimina reportes Allure antiguos antes de correr.
- * - Publica Allure usando la herramienta configurada en Jenkins.
- * - Limpia el workspace al final para ahorrar espacio.
+ * Ejecuta pruebas en Selenium Grid usando Chrome,
+ * elimina reportes antiguos, publica Allure y limpia el workspace.
  */
 
 pipeline {
   agent any
-
-  parameters {
-    choice(name: 'BROWSER', choices: ['chrome', 'firefox'], description: 'Navegador a usar')
-  }
 
   tools {
     jdk 'jdk-17'
@@ -38,12 +32,11 @@ pipeline {
       }
     }
 
-    stage('Compilar y ejecutar pruebas') {
+    stage('Compilar y ejecutar pruebas en Chrome') {
       steps {
-        echo "Ejecutando pruebas en ${params.BROWSER}..."
-        // Si las pruebas fallan, marcamos UNSTABLE pero dejamos continuar para publicar Allure
+        echo 'Ejecutando pruebas en Chrome...'
         catchError(buildResult: 'UNSTABLE', stageResult: 'FAILURE') {
-          sh "mvn -B clean test -Dbrowser=${params.BROWSER} -DseleniumGridUrl=${GRID_URL}"
+          sh 'mvn -B clean test -Dbrowser=chrome -DseleniumGridUrl=${GRID_URL}'
         }
       }
     }
@@ -51,17 +44,12 @@ pipeline {
 
   post {
     always {
-      echo 'Verificando directorio de resultados Allure...'
-      sh 'ls -la target || true; ls -la target/allure-results || true'
-
       echo 'Publicando reporte Allure...'
       allure([
-        // IMPORTANTE: toolName debe coincidir con el configurado en Global Tool Configuration
         toolName: 'Allure_2.35.1',
         results: [[path: 'target/allure-results']],
         reportBuildPolicy: 'ALWAYS'
       ])
-
       echo 'Limpiando workspace...'
       cleanWs(deleteDirs: true, disableDeferredWipeout: true)
     }

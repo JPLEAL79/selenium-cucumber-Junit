@@ -11,7 +11,8 @@ pipeline {
 
     environment {
         SELENIUM_GRID_URL = 'http://selenium-hub:4444/wd/hub'
-        ALLURE_RESULTS = 'allure-results'
+        // === AJUSTE CLAVE: Tu POM usa target/allure-results ===
+        ALLURE_RESULTS = 'target/allure-results'
         ALLURE_SHARE   = '/var/jenkins_home/allure-share/ecommerce-web-automation'
     }
 
@@ -27,8 +28,8 @@ pipeline {
             steps {
                 echo 'Limpieza previa de reportes antiguos...'
                 sh '''
-                  rm -rf allure-results allure-report target || true
-                  mkdir -p allure-results
+                  rm -rf allure-results target/allure-results allure-report target/surefire-reports target || true
+                  mkdir -p target/allure-results
                 '''
             }
         }
@@ -56,15 +57,21 @@ pipeline {
         stage('Run Automated Tests') {
             steps {
                 echo 'Ejecutando pruebas contra Selenium Grid...'
-                sh "mvn -B test -DseleniumGridUrl=${SELENIUM_GRID_URL} -Dmaven.test.failure.ignore=true"
+                // Hooks exige EXACTO -DseleniumGridUrl
+                // === AJUSTE CLAVE: Forzar ejecución de runners ===
+                sh "mvn -B test -Dtest=*Runner -DseleniumGridUrl=${SELENIUM_GRID_URL} -Dmaven.test.failure.ignore=true"
             }
             post {
                 always {
                     echo 'Publicando JUnit y archivando JSON de Allure...'
-                    junit allowEmptyResults: true, testResults: '**/target/surefire-reports/*.xml'
-                    archiveArtifacts artifacts: 'allure-results/**', allowEmptyArchive: true, fingerprint: true
+                    // Surefire por defecto deja XML en target/surefire-reports/*
+                    junit allowEmptyResults: true, testResults: 'target/surefire-reports/*.xml'
+                    // === AJUSTE: archivar la ruta correcta de Allure ===
+                    archiveArtifacts artifacts: 'target/allure-results/**', allowEmptyArchive: true, fingerprint: true
                     // Diagnóstico si no hay resultados
-                    sh 'find . -maxdepth 3 -type d \\( -name "surefire-reports" -o -name "allure-results" \\) -print -exec ls -la {} \\; || true'
+                    sh 'ls -la target || true'
+                    sh 'ls -la target/surefire-reports 2>/dev/null || true'
+                    sh 'ls -la target/allure-results 2>/dev/null || true'
                 }
             }
         }
@@ -86,7 +93,8 @@ pipeline {
                 echo 'Generando Allure HTML (fallback) en el mismo agente...'
                 sh '''
                   set +e
-                  if ! command -v allure >/dev/null 2>&1; then
+                  if ! command -v allure >/dev/null 2%;
+                  then
                     echo "NO_ALLURE" > .allure_miss
                     mkdir -p allure-report
                     cat > allure-report/index.html <<'HTML'
@@ -96,7 +104,7 @@ HTML
                     set -e
                     rm -rf allure-report || true
                     allure --version
-                    allure generate "allure-results" -c -o allure-report
+                    allure generate "${ALLURE_RESULTS}" -c -o allure-report
                   fi
                 '''
                 script {
@@ -118,15 +126,16 @@ HTML
             steps {
                 echo 'Publicando resultados con el plugin Allure (protegido)...'
                 script {
-                    boolean hasAllure = fileExists('allure-results') && sh(returnStatus: true, script: 'test -n "$(ls -A allure-results 2>/dev/null || true)"') == 0
+                    boolean hasAllure = fileExists("${env.ALLURE_RESULTS}") &&
+                        sh(returnStatus: true, script: 'test -n "$(ls -A ' + env.ALLURE_RESULTS + ' 2>/dev/null || true)"') == 0
                     if (!hasAllure) {
-                        echo 'No hay allure-results; salto plugin.'
+                        echo 'No hay target/allure-results; salto plugin.'
                     } else {
                         catchError(buildResult: 'UNSTABLE', stageResult: 'UNSTABLE') {
                             allure([
                                 includeProperties: false,
                                 jdk: '',
-                                results: [[path: "allure-results"]],
+                                results: [[path: "${env.ALLURE_RESULTS}"]],
                                 reportBuildPolicy: 'ALWAYS'
                             ])
                         }

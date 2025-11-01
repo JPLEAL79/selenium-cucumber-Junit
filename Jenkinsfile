@@ -46,7 +46,7 @@ pipeline {
     always {
       echo 'Publicando reporte Allure...'
       allure([
-        toolName: 'Allure_2.35.1',
+        config: [allureInstallationName: 'Allure_2.35.1'],
         results: [[path: 'target/allure-results']],
         reportBuildPolicy: 'ALWAYS'
       ])
@@ -54,4 +54,3 @@ pipeline {
       cleanWs(deleteDirs: true, disableDeferredWipeout: true)
     }
   }
-}

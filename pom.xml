@@ -15,7 +15,6 @@
 
         <allure.results.directory>target/allure-results</allure.results.directory>
         <allure.report.directory>target/allure-report</allure.report.directory>
-
     </properties>
 
     <dependencies>
@@ -88,4 +87,24 @@
             </exclusions>
         </dependency>
     </dependencies>
+
+    <!-- ÚNICO agregado necesario: Surefire 3.2.5 -->
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <version>3.2.5</version>
+                <configuration>
+                    <useModulePath>false</useModulePath>
+                    <includes>
+                        <include>**/*Runner.java</include>
+                        <include>**/*Test.java</include>
+                        <include>**/*Tests.java</include>
+                        <include>**/*IT.java</include>
+                    </includes>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
 </project>

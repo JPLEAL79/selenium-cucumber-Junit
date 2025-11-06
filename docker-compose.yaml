@@ -14,51 +14,52 @@ services:
       - "4444:4444"
     environment:
       - SE_OPTS=--log-level FINE
-    # Los puertos 4442/4443 son internos para nodos; no es necesario exponerlos al host.
 
   chrome-node:
     image: selenium/node-chrome:4.8.0
     container_name: chrome-node
     restart: always
     networks: [selenium-grid]
-    depends_on: [selenium-hub]
-    shm_size: "2g"
+    depends_on:
+      - selenium-hub
     environment:
       - SE_EVENT_BUS_HOST=selenium-hub
       - SE_EVENT_BUS_PUBLISH_PORT=4442
       - SE_EVENT_BUS_SUBSCRIBE_PORT=4443
     ports:
-      - "5555:5555"   # mantener
-      - "5900:5900"   # VNC
+      - "5555:5555"
+      - "5900:5900"
+    shm_size: "2g"
 
   firefox-node:
     image: selenium/node-firefox:4.8.0
     container_name: firefox-node
     restart: always
     networks: [selenium-grid]
-    depends_on: [selenium-hub]
-    shm_size: "2g"
+    depends_on:
+      - selenium-hub
     environment:
       - SE_EVENT_BUS_HOST=selenium-hub
       - SE_EVENT_BUS_PUBLISH_PORT=4442
       - SE_EVENT_BUS_SUBSCRIBE_PORT=4443
     ports:
-      - "5556:5555"   # mantener (host 5556 → cont 5555)
-      - "5901:5901"   # VNC
+      - "5556:5556"
+      - "5901:5901"
+    shm_size: "2g"
 
   jenkins:
     image: jenkins/jenkins:lts
     container_name: jenkins
     restart: always
-    networks: [selenium-grid]
     user: root
+    networks: [selenium-grid]
     ports:
       - "8080:8080"
     volumes:
-      # Backup/estado completo de Jenkins en host (mantener ruta):
+      # Backup completo del home de Jenkins en Windows
       - "C:\\jenkins\\data:/var/jenkins_home"
-      # Opcional: docker.sock solo si luego usas agentes docker dentro de Jenkins
-      # - "/var/run/docker.sock:/var/run/docker.sock"
+      # Para que Jenkins pueda hablar con Docker del host (pipeline después)
+      - "/var/run/docker.sock:/var/run/docker.sock"
 
   jdk-maven:
     build:
@@ -70,7 +71,7 @@ services:
     networks: [selenium-grid]
     working_dir: /workspace
     volumes:
-      # Monta el repo de trabajo actual al contenedor (para ejecutar mvn dentro):
+      # Repo de trabajo dentro del contenedor
       - .:/workspace
-      # Monta el share Allure EXACTO para exportar JSON desde los jobs/manual:
+      # Share Allure EXACTO en Windows → /allure-share en el contenedor
       - "C:\\jenkins\\data\\allure-share\\ecommerce-web-automation:/allure-share"

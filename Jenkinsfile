@@ -1,52 +1,83 @@
+// ============================================================================
+// Jenkinsfile - Selenium + Cucumber + JUnit + Allure
+// Autor: Juan Pablo Lea
+// Ejecuta tests dentro del contenedor existente "jdk-maven" y publica Allure.
+// ============================================================================
+
 pipeline {
   agent any
-  options { timestamps() }
+  options {
+    timestamps()
+    ansiColor('xterm')
+    disableConcurrentBuilds()       // evita loops por builds solapados
+    buildDiscarder(logRotator(numToKeepStr: '15'))
+    timeout(time: 30, unit: 'MINUTES')
+  }
+
+  parameters {
+    string(name: 'BROWSER', defaultValue: 'chrome', description: 'chrome|firefox')
+    string(name: 'GRID_URL', defaultValue: 'http://selenium-hub:4444/wd/hub', description: 'URL Selenium Grid')
+    booleanParam(name: 'CLEAN', defaultValue: true, description: 'mvn clean antes de test')
+  }
+
   environment {
-    GRID_URL = 'http://selenium-hub:4444/wd/hub'
-    MAVEN_REPO = '/var/jenkins_home/.m2/repository'
+    ALLURE_RESULTS = 'target/allure-results'    // definido también en tu POM :contentReference[oaicite:1]{index=1}
   }
+
   stages {
-    stage('Test (una vez)') {
+    stage('Checkout') {
+      steps { checkout scm }
+    }
+
+    stage('Prechequeo contenedor') {
       steps {
-        script {
-          def JDK = tool 'jdk-17'
-          def M2  = tool 'maven-3.9.11'
-          sh "mkdir -p ${MAVEN_REPO}"
-          withEnv([
-            "JAVA_HOME=${JDK}",
-            "PATH=${M2}/bin:${JDK}/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
-          ]) {
-            sh '''
-              rm -rf target/allure-results target/allure-report || true
-              mvn -B -U --no-transfer-progress \
-                -Dmaven.repo.local=''' + "${MAVEN_REPO}" + ''' \
-                -Dsurefire.rerunFailingTestsCount=0 \
-                -DfailIfNoTests=false \
-                clean test \
-                -Dcucumber.features=src/test/resources/features \
-                -Dcucumber.glue=definitions \
-                -Dbrowser=chrome \
-                -DseleniumGridUrl=''' + "${GRID_URL}" + '''
-            '''
+        sh '''
+          docker ps --format "{{.Names}}" | grep -q "^jdk-maven$" || {
+            echo "[ERROR] Falta contenedor jdk-maven"; exit 1;
           }
+        '''
+      }
+    }
+
+    stage('Build & Test (en jdk-maven)') {
+      steps {
+        sh '''
+          set -e
+          if [ "${CLEAN}" = "true" ]; then
+            docker exec jdk-maven sh -lc "mvn -q -DskipTests=true clean package"
+          fi
+
+          # Ejecuta tests con plugin de Allure para Cucumber ACTIVADO
+          docker exec jdk-maven sh -lc '\
+            mvn -q test \
+              -Dbrowser="${BROWSER}" \
+              -DseleniumGridUrl="${GRID_URL}" \
+              -Dcucumber.plugin="pretty, summary, io.qameta.allure.cucumber7jvm.AllureCucumber7Jvm" \
+          '
+        '''
+      }
+      post {
+        always {
+          sh '''
+            echo "[INFO] Archivos en target/allure-results:"
+            ls -la ${ALLURE_RESULTS} || true
+            find ${ALLURE_RESULTS} -type f | wc -l || true
+          '''
         }
       }
     }
-    stage('Allure') {
+
+    stage('Publicar Allure') {
       steps {
-        script {
-          def ALLURE = tool 'Allure_2.35.1'
-          withEnv([ "PATH=${ALLURE}/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin" ]) {
-            sh 'test -d target/allure-results && allure generate target/allure-results -o target/allure-report --clean || echo "sin resultados"'
-          }
-        }
+        // Requiere plugin Allure en Jenkins y path de results del workspace
+        allure includeProperties: false, jdk: '', results: [[path: "${ALLURE_RESULTS}"]]
       }
     }
   }
+
   post {
     always {
-      archiveArtifacts artifacts: 'target/allure-report/**', allowEmptyArchive: true
-      cleanWs(deleteDirs: true, disableDeferredWipeout: true)
+      archiveArtifacts artifacts: 'target/**/*.log, target/screenshots/**/*', onlyIfSuccessful: false
     }
   }
 }

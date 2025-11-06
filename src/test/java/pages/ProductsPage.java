@@ -11,7 +11,7 @@ import org.openqa.selenium.support.ui.ExpectedConditions;
 public class ProductsPage extends Utils {
 
 
-    @FindBy(xpath = "//div[text()='Products']")protected WebElement lblTitulo;
+    @FindBy(xpath = "//*[@id='header_container']/div[2]")protected WebElement lblTitulo;
     @FindBy(xpath = "//*[@id='shopping_cart_container']/a")protected WebElement btnCarrito;
 
     public ProductsPage() {

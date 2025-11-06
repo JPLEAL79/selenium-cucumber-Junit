@@ -17,5 +17,5 @@ services:
     ports:
       - "4040:4040"
     volumes:
-      # Montaje EXACTO de la ruta compartida con los JSON:
+      # Montaje EXACTO de la ruta compartida con los JSON
       - "C:\\jenkins\\data\\allure-share\\ecommerce-web-automation:/app/allure-results"

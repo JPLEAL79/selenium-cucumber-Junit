@@ -19,7 +19,7 @@ Diseñado para ser **portable**, **modular** y fácilmente integrable en pipelin
 
 ---
 
-## Estructura del Proyecto.
+## Estructura del Proyecto
 
 selenium-cucumber-Junit/
 ┣ 📂 src
@@ -27,36 +27,57 @@ selenium-cucumber-Junit/
 ┃ ┗ 📂 test/java/... # Step Definitions y Hooks
 ┣ 📂 features/ # Escenarios Cucumber (.feature)
 ┣ 📂 target/ # Resultados de compilación
-┣ 📂 allure-results/ # Resultados Allure (ignorar en control de versiones)
-┣ 📜 pom.xml # Configuración Maven
-┣ 📜 Dockerfile-jdk-maven # Imagen base para ejecución
+┣ 📂 allure-results/ # Resultados Allure (ignorar en Git)
+┣ 📜 pom.xml # Configuración Maven (JUnit + Cucumber + Allure)
+┣ 📜 Dockerfile-jdk-maven # Imagen base para ejecución Maven
 ┣ 📜 Dockerfile-allure-reports
-┣ 📜 docker-compose.yml # Orquestación de contenedores
+┣ 📜 docker-compose.yaml # Orquestación de contenedores
 ┗ 📜 README.md
 
 
 ---
 
-## Ejecución Local
+##  Ejecución Local
 
-1. **Clonar el repositorio**
-   ```bash
-   git clone https://github.com/JPLEAL79/selenium-cucumber-Junit.git
-   cd selenium-cucumber-Junit
+### 1. Clonar el repositorio
+
+```bash
+git clone https://github.com/JPLEAL79/selenium-cucumber-Junit.git
+cd selenium-cucumber-Junit
+
 
 Levantar el entorno con Docker Compose.
+- docker-compose up --build
 
--docker-compose up --build
+Esto iniciará los contenedores:
 
-Ejecuciones de las pruebas
+- selenium-hub (puerto 4444)
+- chrome-node / firefox-node
+- jdk-maven (ejecución de pruebas)
+- allure-reports (servidor Allure en http://localhost:4040)
+- jenkins (si está configurado en tu entorno)
 
-Desde Windows / IntelliJ
-- mvn clean test -Dbrowser=chrome -DseleniumGridUrl=http://localhost:4444/wd/hub
-- mvn clean test -Dbrowser=firefox -DseleniumGridUrl=http://localhost:4444/wd/hub
+Ejecutar las pruebas
+Desde Windows o IntelliJ
 
-Desde Docker
--	docker exec -it jdk-maven sh -c "mvn clean test -Dbrowser=chrome -DseleniumGridUrl=http://selenium-hub:4444/wd/hub"
--	docker exec -it jdk-maven sh -c "mvn clean test -Dbrowser=firefox -DseleniumGridUrl=http://selenium-hub:4444/wd/hub"
+No es necesario usar clean.
+El proyecto limpia automáticamente los resultados viejos de Allure antes de cada ejecución.
 
+- mvn test -Dbrowser=chrome -DseleniumGridUrl=http://localhost:4444/wd/hub
+- mvn test -Dbrowser=firefox -DseleniumGridUrl=http://localhost:4444/wd/hub
 
+Desde el contenedor jdk-maven (Docker)
+
+- docker exec -it jdk-maven sh -c "mvn test -Dbrowser=chrome -DseleniumGridUrl=http://selenium-hub:4444/wd/hub"
+- docker exec -it jdk-maven sh -c "mvn test -Dbrowser=firefox -DseleniumGridUrl=http://selenium-hub:4444/wd/hub"
+
+4. Visualizar el reporte Allure
+
+- Después de ejecutar las pruebas, el sistema:
+- Limpia automáticamente allure-results/
+- Copia los resultados nuevos al share /allure-share
+- Regenera el reporte en el contenedor allure-reports
+
+ Abre el navegador:
+ http://localhost:4040
 

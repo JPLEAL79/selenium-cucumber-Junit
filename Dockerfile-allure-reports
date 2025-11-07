@@ -23,4 +23,4 @@ WORKDIR /app
 EXPOSE 4040
 
 # Comando por defecto: servir el reporte en el puerto 4040
-CMD sh -c "allure generate /app/allure-results -o /app/allure-report --clean && allure open /app/allure-report --host 0.0.0.0 --port 4040"
+CMD sh -c "rm -rf /app/allure-report || true && allure generate /app/allure-results -o /app/allure-report --clean && allure open /app/allure-report --host 0.0.0.0 --port 4040"

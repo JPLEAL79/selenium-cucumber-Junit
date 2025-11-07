@@ -16,6 +16,4 @@ settings.xml
 *.key
 *.jks
 
-# Sistema operativo
-.DS_Store
-Thumbs.db
+

@@ -1,22 +1,21 @@
+version: "3.8"
+
+networks:
+  selenium-grid:
+    external: true
+    name: selenium-grid
+
 services:
   allure-reports:
     build:
       context: .
-      dockerfile: Dockerfile-allure-reports     # Usa tu Dockerfile de Allure
-    image: allure-reports                       # Nombre de la imagen
-    container_name: allure-reports              # Nombre del contenedor
+      dockerfile: Dockerfile-allure-reports
+    image: allure-reports
+    container_name: allure-reports
+    restart: always
+    networks: [selenium-grid]
     ports:
-      - "4040:4040"                             # Puerto para la interfaz web
+      - "4040:4040"
     volumes:
-      # 🧱 Ruta absoluta en Windows (ajústala si tu usuario o carpeta difiere)
-      - "C:\\Users\\averg\\repoJP\\Automation\\selenium-cucumber-Junit\\target\\allure-results:/app/allure-results"
-    networks:
-      - selenium-grid                           # Conecta al Grid
-    restart: unless-stopped                     # Reinicia si falla
-    command: >
-      sh -c "allure generate /app/allure-results -o /app/allure-report --clean &&
-             allure open /app/allure-report --host 0.0.0.0 --port 4040"
-
-networks:
-  selenium-grid:
-    external: true                              # Usa la red del compose principal
+      # Montaje EXACTO de la ruta compartida con los JSON
+      - "C:\\jenkins\\data\\allure-share\\ecommerce-web-automation:/app/allure-results"

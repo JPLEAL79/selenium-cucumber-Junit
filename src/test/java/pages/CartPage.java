@@ -8,7 +8,7 @@ import org.openqa.selenium.support.ui.ExpectedConditions;
 
 public class CartPage extends Utils {
 
-    @FindBy(xpath = "//a[@class='btn_action checkout_button']")protected WebElement btnCheckout;
+    @FindBy(xpath = "//*[@id='checkout']")protected WebElement btnCheckout;
 
     public CartPage() {
         PageFactory.initElements(driver, this);

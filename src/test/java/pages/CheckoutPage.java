@@ -12,7 +12,7 @@ public class CheckoutPage extends Utils {
     protected WebElement txtNombre;
     @FindBy(id = "last-name")protected WebElement txtApellido;
     @FindBy(id = "postal-code")protected WebElement txtPostal;
-    @FindBy(xpath = "//input[@value='CONTINUE']")protected WebElement btnContinuar;
+    @FindBy(xpath = "//*[@id='continue']")protected WebElement btnContinuar;
 
     public CheckoutPage() {
         PageFactory.initElements(driver, this);

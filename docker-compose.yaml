@@ -1,80 +1,77 @@
-version: "3.9"
+version: "3.8"
+
+networks:
+  selenium-grid:
+    name: selenium-grid
 
 services:
   selenium-hub:
     image: selenium/hub:4.8.0
-    container_name: selenium-hub # Nombre del contenedor del Hub.
+    container_name: selenium-hub
+    restart: always
+    networks: [selenium-grid]
     ports:
-      - "4444:4444"  # Exponer el puerto principal del Hub
+      - "4444:4444"
     environment:
-      - SE_EVENT_BUS_HOST=selenium-hub     # Dirección del Hub
-      - SE_EVENT_BUS_PUBLISH_PORT=4442     # Puerto para publicar eventos
-      - SE_EVENT_BUS_SUBSCRIBE_PORT=4443   # Puerto para suscribirse a eventos
-    networks:
-      - selenium-grid                      # Conectado a la red común
-    restart: unless-stopped                # Reinicia automáticamente al reiniciar Docker
+      - SE_OPTS=--log-level FINE
 
   chrome-node:
     image: selenium/node-chrome:4.8.0
-    container_name: chrome-node            # Nombre del contenedor Chrome
-    depends_on:
-      - selenium-hub                       # Inicia después del Hub
-    environment:
-      - HUB_HOST=selenium-hub
-      - HUB_PORT=4444
-      - SE_EVENT_BUS_HOST=selenium-hub
-      - SE_EVENT_BUS_PUBLISH_PORT=4442
-      - SE_EVENT_BUS_SUBSCRIBE_PORT=4443
-      - SE_NODE_MAX_SESSIONS=2             # Máx. 2 sesiones concurrentes
-      - VNC_NO_PASSWORD=1
-    ports:
-      - "5555:5555"                        # Puerto del nodo Chrome
-      - "5900:5900"                        # Puerto VNC (para ver el navegador)
-    networks:
-      - selenium-grid
-    restart: unless-stopped
-
-  firefox-node:
-    image: selenium/node-firefox:4.8.0
-    container_name: firefox-node           # Nombre del contenedor Firefox
+    container_name: chrome-node
+    restart: always
+    networks: [selenium-grid]
     depends_on:
       - selenium-hub
     environment:
-      - HUB_HOST=selenium-hub
-      - HUB_PORT=4444
       - SE_EVENT_BUS_HOST=selenium-hub
       - SE_EVENT_BUS_PUBLISH_PORT=4442
       - SE_EVENT_BUS_SUBSCRIBE_PORT=4443
-      - SE_NODE_MAX_SESSIONS=2
-      - VNC_NO_PASSWORD=1
     ports:
-      - "5556:5555"                        # Puerto del nodo Firefox
-      - "5901:5900"                        # Puerto VNC Firefox
-    networks:
-      - selenium-grid
-    restart: unless-stopped
+      - "5555:5555"
+      - "5900:5900"
+    shm_size: "2g"
+
+  firefox-node:
+    image: selenium/node-firefox:4.8.0
+    container_name: firefox-node
+    restart: always
+    networks: [selenium-grid]
+    depends_on:
+      - selenium-hub
+    environment:
+      - SE_EVENT_BUS_HOST=selenium-hub
+      - SE_EVENT_BUS_PUBLISH_PORT=4442
+      - SE_EVENT_BUS_SUBSCRIBE_PORT=4443
+    ports:
+      - "5556:5556"
+      - "5901:5901"
+    shm_size: "2g"
 
   jenkins:
     image: jenkins/jenkins:lts
-    container_name: jenkins                # Nombre del contenedor Jenkins
-    privileged: true
+    container_name: jenkins
+    restart: always
     user: root
+    networks: [selenium-grid]
     ports:
-      - "8080:8080"                        # Puerto UI Jenkins
-      - "50000:50000"                      # Puerto para agentes
+      - "8080:8080"
     volumes:
-      - jenkins_home:/var/jenkins_home     # Datos persistentes
-      - /var/run/docker.sock:/var/run/docker.sock
-    networks:
-      - selenium-grid
-    restart: unless-stopped
+      # Backup completo del home de Jenkins en Windows
+      - "C:\\jenkins\\data:/var/jenkins_home"
+      # Para que Jenkins pueda hablar con Docker del host (pipeline después)
+      - "/var/run/docker.sock:/var/run/docker.sock"
 
-# Red fija compartida entre todos los contenedores
-networks:
-  selenium-grid:
-    name: selenium-grid                    # Nombre fijo (evita el prefijo del proyecto)
-    driver: bridge
-
-# Volumen persistente para Jenkins
-volumes:
-  jenkins_home:
+  jdk-maven:
+    build:
+      context: .
+      dockerfile: Dockerfile-jdk-maven
+    image: jdk-maven
+    container_name: jdk-maven
+    restart: always
+    networks: [selenium-grid]
+    working_dir: /workspace
+    volumes:
+      # Repo de trabajo dentro del contenedor
+      - .:/workspace
+      # Share Allure EXACTO en Windows → /allure-share en el contenedor
+      - "C:\\jenkins\\data\\allure-share\\ecommerce-web-automation:/allure-share"

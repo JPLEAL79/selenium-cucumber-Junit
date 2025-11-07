@@ -8,8 +8,10 @@ services:
     networks:
       - selenium-grid           # conecta a la red del Grid
     restart: unless-stopped     # reinicia automáticamente si falla
-    command: ["mvn", "clean", "test"]
+    command: >
+      sh -c "while true; do mvn clean test; echo 'Ejecución finalizada, esperando 60s antes de reiniciar...'; sleep 60; done"
 
 networks:
   selenium-grid:
     external: true              # usa la red ya creada por el compose principal
+

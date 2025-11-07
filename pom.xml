@@ -2,6 +2,7 @@
 <project xmlns="http://maven.apache.org/POM/4.0.0"
          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+
     <modelVersion>4.0.0</modelVersion>
 
     <groupId>org.example</groupId>
@@ -13,12 +14,14 @@
         <maven.compiler.target>17</maven.compiler.target>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 
-        <allure.results.directory>target/allure-results</allure.results.directory>
+        <!-- Allure configuration -->
+        <!-- Resultados en la RAÍZ del proyecto, como definiste -->
+        <allure.results.directory>allure-results</allure.results.directory>
         <allure.report.directory>target/allure-report</allure.report.directory>
-
     </properties>
 
     <dependencies>
+        <!-- Cucumber -->
         <dependency>
             <groupId>io.cucumber</groupId>
             <artifactId>cucumber-java</artifactId>
@@ -32,17 +35,12 @@
             <scope>test</scope>
         </dependency>
 
+        <!-- JUnit 5 -->
         <dependency>
             <groupId>org.junit.platform</groupId>
             <artifactId>junit-platform-suite</artifactId>
             <version>1.10.2</version>
             <scope>test</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>org.seleniumhq.selenium</groupId>
-            <artifactId>selenium-java</artifactId>
-            <version>4.21.0</version>
         </dependency>
 
         <dependency>
@@ -52,14 +50,21 @@
             <scope>test</scope>
         </dependency>
 
-        <!-- Forzar versión específica para evitar conflicto de io.cucumber:messages -->
+        <!-- Selenium -->
+        <dependency>
+            <groupId>org.seleniumhq.selenium</groupId>
+            <artifactId>selenium-java</artifactId>
+            <version>4.21.0</version>
+        </dependency>
+
+        <!-- Fix for Cucumber messages -->
         <dependency>
             <groupId>io.cucumber</groupId>
             <artifactId>messages</artifactId>
             <version>24.1.0</version>
         </dependency>
 
-        <!-- Allure JUnit5 integration -->
+        <!-- Allure dependencies -->
         <dependency>
             <groupId>io.qameta.allure</groupId>
             <artifactId>allure-junit5</artifactId>
@@ -67,14 +72,6 @@
             <scope>test</scope>
         </dependency>
 
-        <!-- Commons IO -->
-        <dependency>
-            <groupId>commons-io</groupId>
-            <artifactId>commons-io</artifactId>
-            <version>2.7</version>
-        </dependency>
-
-        <!-- Allure Cucumber7 JVM con exclusión para evitar conflicto en messages -->
         <dependency>
             <groupId>io.qameta.allure</groupId>
             <artifactId>allure-cucumber7-jvm</artifactId>
@@ -87,5 +84,121 @@
                 </exclusion>
             </exclusions>
         </dependency>
+
+        <!-- Utilities -->
+        <dependency>
+            <groupId>commons-io</groupId>
+            <artifactId>commons-io</artifactId>
+            <version>2.7</version>
+        </dependency>
     </dependencies>
+
+    <build>
+        <plugins>
+            <!-- Compiler -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <version>3.11.0</version>
+                <configuration>
+                    <source>17</source>
+                    <target>17</target>
+                </configuration>
+            </plugin>
+
+            <!-- Cucumber + JUnit Platform + Allure -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <version>3.2.5</version>
+                <configuration>
+                    <useModulePath>false</useModulePath>
+                    <forkCount>1</forkCount>
+                    <reuseForks>false</reuseForks>
+                    <rerunFailingTestsCount>0</rerunFailingTestsCount>
+                    <systemPropertyVariables>
+                        <cucumber.features>src/test/resources/features</cucumber.features>
+                        <cucumber.glue>definitions</cucumber.glue>
+                        <!-- Enable Allure reporting -->
+                        <cucumber.plugin>
+                            pretty, summary, io.qameta.allure.cucumber7jvm.AllureCucumber7Jvm
+                        </cucumber.plugin>
+                        <allure.results.directory>${allure.results.directory}</allure.results.directory>
+                    </systemPropertyVariables>
+                </configuration>
+            </plugin>
+
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-antrun-plugin</artifactId>
+                <version>3.1.0</version>
+                <executions>
+                    <!-- 1) Antes de los tests: limpiar allure-results local -->
+                    <execution>
+                        <id>clean-allure-results-before-tests</id>
+                        <phase>test-compile</phase>
+                        <configuration>
+                            <target>
+                                <echo message="Limpiando allure-results local..."/>
+                                <delete dir="${basedir}/allure-results" failonerror="false"/>
+                            </target>
+                        </configuration>
+                        <goals>
+                            <goal>run</goal>
+                        </goals>
+                    </execution>
+
+                    <!-- 2) Después de los tests: copiar al share y regenerar reporte en el contenedor -->
+                    <execution>
+                        <id>copy-allure-and-generate-report</id>
+                        <!-- Se ejecuta en la MISMA fase 'test', pero este plugin va después de surefire -->
+                        <phase>test</phase>
+                        <configuration>
+                            <target>
+                                <echo message="Copiando resultados nuevos a /allure-share en jdk-maven..."/>
+                                <exec executable="docker">
+                                    <arg value="exec"/>
+                                    <arg value="jdk-maven"/>
+                                    <arg value="bash"/>
+                                    <arg value="-lc"/>
+                                    <!-- Copia desde /workspace/allure-results (repo) a /allure-share (share) -->
+                                    <arg value="rm -rf /allure-share/* &amp;&amp; cp -r /workspace/allure-results/* /allure-share/"/>
+                                </exec>
+
+                                <echo message="Regenerando reporte en contenedor allure-reports..."/>
+                                <exec executable="docker">
+                                    <arg value="exec"/>
+                                    <arg value="allure-reports"/>
+                                    <arg value="bash"/>
+                                    <arg value="-lc"/>
+                                    <arg value="allure generate /app/allure-results -o /app/allure-report --clean"/>
+                                </exec>
+                            </target>
+                        </configuration>
+                        <goals>
+                            <goal>run</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+
+            <!-- Clean para borrar siempre allure-results de la raíz -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-clean-plugin</artifactId>
+                <version>3.3.2</version>
+                <configuration>
+                    <filesets>
+                        <!-- Borra siempre la carpeta allure-results de la raíz del proyecto -->
+                        <fileset>
+                            <directory>${basedir}/allure-results</directory>
+                            <includes>
+                                <include>**/*</include>
+                            </includes>
+                        </fileset>
+                    </filesets>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
 </project>

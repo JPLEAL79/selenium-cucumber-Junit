@@ -117,30 +117,30 @@
                     <reuseForks>false</reuseForks>
                     <rerunFailingTestsCount>0</rerunFailingTestsCount>
                     <systemPropertyVariables>
-                        <cucumber.features>src/test/resources/features</cucumber.features>
-                        <cucumber.glue>definitions</cucumber.glue>
-                        <!-- Enable Allure reporting -->
-                        <cucumber.plugin>
-                            pretty, summary, io.qameta.allure.cucumber7jvm.AllureCucumber7Jvm
-                        </cucumber.plugin>
+                        <!-- Solo dejamos Allure aquí; Cucumber se configura en CucumberTests -->
                         <allure.results.directory>${allure.results.directory}</allure.results.directory>
                     </systemPropertyVariables>
                 </configuration>
             </plugin>
 
+            <!-- Allure + Docker (limpieza y publicación de reportes) -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-antrun-plugin</artifactId>
                 <version>3.1.0</version>
                 <executions>
-                    <!-- 1) Antes de los tests: limpiar allure-results local -->
+                    <!-- 1) Antes de los tests: limpiar como un clean -->
                     <execution>
                         <id>clean-allure-results-before-tests</id>
-                        <phase>test-compile</phase>
+                        <!-- CAMBIO: de test-compile -> initialize -->
+                        <phase>initialize</phase>
                         <configuration>
                             <target>
-                                <echo message="Limpiando allure-results local..."/>
+                                <echo level="info" message="Limpiando target y allure-results antes de los tests..."/>
+                                <!-- Equivalente al clean de Maven, pero al inicio del ciclo -->
+                                <delete dir="${project.build.directory}" failonerror="false"/>
                                 <delete dir="${basedir}/allure-results" failonerror="false"/>
+                                <mkdir dir="${basedir}/allure-results"/>
                             </target>
                         </configuration>
                         <goals>
@@ -155,7 +155,7 @@
                         <phase>test</phase>
                         <configuration>
                             <target>
-                                <echo message="Copiando resultados nuevos a /allure-share en jdk-maven..."/>
+                                <echo level="info" message="Copiando resultados nuevos a /allure-share en jdk-maven..."/>
                                 <exec executable="docker">
                                     <arg value="exec"/>
                                     <arg value="jdk-maven"/>
@@ -165,7 +165,7 @@
                                     <arg value="rm -rf /allure-share/* &amp;&amp; cp -r /workspace/allure-results/* /allure-share/"/>
                                 </exec>
 
-                                <echo message="Regenerando reporte en contenedor allure-reports..."/>
+                                <echo level="info" message="Regenerando reporte en contenedor allure-reports..."/>
                                 <exec executable="docker">
                                     <arg value="exec"/>
                                     <arg value="allure-reports"/>
@@ -182,7 +182,7 @@
                 </executions>
             </plugin>
 
-            <!-- Clean para borrar siempre allure-results de la raíz -->
+            <!-- Clean para borrar siempre allure-results de la raíz (cuando hagas mvn clean) -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-clean-plugin</artifactId>

@@ -136,7 +136,7 @@
                         <phase>initialize</phase>
                         <configuration>
                             <target>
-                                <echo message="Limpiando target y allure-results antes de los tests..."/>
+                                <echo level="info" message="Limpiando target y allure-results antes de los tests..."/>
                                 <!-- Equivalente al clean de Maven, pero al inicio del ciclo -->
                                 <delete dir="${project.build.directory}" failonerror="false"/>
                                 <delete dir="${basedir}/allure-results" failonerror="false"/>
@@ -155,7 +155,7 @@
                         <phase>test</phase>
                         <configuration>
                             <target>
-                                <echo message="Copiando resultados nuevos a /allure-share en jdk-maven..."/>
+                                <echo level="info" message="Copiando resultados nuevos a /allure-share en jdk-maven..."/>
                                 <exec executable="docker">
                                     <arg value="exec"/>
                                     <arg value="jdk-maven"/>
@@ -165,7 +165,7 @@
                                     <arg value="rm -rf /allure-share/* &amp;&amp; cp -r /workspace/allure-results/* /allure-share/"/>
                                 </exec>
 
-                                <echo message="Regenerando reporte en contenedor allure-reports..."/>
+                                <echo level="info" message="Regenerando reporte en contenedor allure-reports..."/>
                                 <exec executable="docker">
                                     <arg value="exec"/>
                                     <arg value="allure-reports"/>

@@ -1,65 +1,54 @@
-version: "3.8"
-
-networks:
-  selenium-grid:
-    name: selenium-grid
+version: '3.8'
 
 services:
   selenium-hub:
-    image: selenium/hub:4.8.0
+    image: selenium/hub:4.21.0-20240521
     container_name: selenium-hub
-    restart: always
-    networks: [selenium-grid]
     ports:
+      - "4442:4442"
+      - "4443:4443"
       - "4444:4444"
-    environment:
-      - SE_OPTS=--log-level FINE
+    networks:
+      - selenium-grid
 
   chrome-node:
-    image: selenium/node-chrome:4.8.0
+    image: selenium/node-chrome:4.21.0-20240521
+    shm_size: 2gb
     container_name: chrome-node
-    restart: always
-    networks: [selenium-grid]
     depends_on:
       - selenium-hub
     environment:
       - SE_EVENT_BUS_HOST=selenium-hub
       - SE_EVENT_BUS_PUBLISH_PORT=4442
       - SE_EVENT_BUS_SUBSCRIBE_PORT=4443
-    ports:
-      - "5555:5555"
-      - "5900:5900"
-    shm_size: "2g"
+    networks:
+      - selenium-grid
 
   firefox-node:
-    image: selenium/node-firefox:4.8.0
+    image: selenium/node-firefox:4.21.0-20240521
+    shm_size: 2gb
     container_name: firefox-node
-    restart: always
-    networks: [selenium-grid]
     depends_on:
       - selenium-hub
     environment:
       - SE_EVENT_BUS_HOST=selenium-hub
       - SE_EVENT_BUS_PUBLISH_PORT=4442
       - SE_EVENT_BUS_SUBSCRIBE_PORT=4443
-    ports:
-      - "5556:5556"
-      - "5901:5901"
-    shm_size: "2g"
+    networks:
+      - selenium-grid
 
-  jenkins:
-    image: jenkins/jenkins:lts
-    container_name: jenkins
-    restart: always
-    user: root
-    networks: [selenium-grid]
+  allure-reports:
+    build:
+      context: .
+      dockerfile: Dockerfile-allure-reports
+    image: allure-reports
+    container_name: allure-reports
     ports:
-      - "8080:8080"
+      - "4040:4040"
     volumes:
-      # Backup completo del home de Jenkins en Windows
-      - "C:\\jenkins\\data:/var/jenkins_home"
-      # Para que Jenkins pueda hablar con Docker del host (pipeline después)
-      - "/var/run/docker.sock:/var/run/docker.sock"
+      - .:/app
+    networks:
+      - selenium-grid
 
   jdk-maven:
     build:
@@ -68,10 +57,14 @@ services:
     image: jdk-maven
     container_name: jdk-maven
     restart: always
-    networks: [selenium-grid]
     working_dir: /workspace
     volumes:
-      # Repo de trabajo dentro del contenedor
       - .:/workspace
-      # Share Allure EXACTO en Windows → /allure-share en el contenedor
       - "C:\\jenkins\\data\\allure-share\\ecommerce-web-automation:/allure-share"
+    # clave: conectar a la red donde está selenium-hub
+    networks:
+      - selenium-grid
+
+networks:
+  selenium-grid:
+    external: true

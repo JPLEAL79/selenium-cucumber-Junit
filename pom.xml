@@ -15,11 +15,10 @@
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 
         <!-- Allure configuration -->
-        <!-- Resultados en la RAÍZ del proyecto, como definiste -->
         <allure.results.directory>allure-results</allure.results.directory>
         <allure.report.directory>target/allure-report</allure.report.directory>
 
-        <!-- NUEVO: por defecto NO se salta la integración Docker/Allure -->
+        <!-- Por defecto NO se salta la integración Docker/Allure -->
         <skip.docker.allure>false</skip.docker.allure>
     </properties>
 
@@ -67,7 +66,7 @@
             <version>24.1.0</version>
         </dependency>
 
-        <!-- Allure dependencies -->
+        <!-- Allure -->
         <dependency>
             <groupId>io.qameta.allure</groupId>
             <artifactId>allure-junit5</artifactId>
@@ -109,7 +108,7 @@
                 </configuration>
             </plugin>
 
-            <!-- Cucumber + JUnit Platform + Allure -->
+            <!-- Cucumber + JUnit + Allure -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-surefire-plugin</artifactId>
@@ -120,7 +119,6 @@
                     <reuseForks>false</reuseForks>
                     <rerunFailingTestsCount>0</rerunFailingTestsCount>
                     <systemPropertyVariables>
-                        <!-- Solo dejamos Allure aquí; Cucumber se configura en CucumberTests -->
                         <allure.results.directory>${allure.results.directory}</allure.results.directory>
                     </systemPropertyVariables>
                 </configuration>
@@ -132,15 +130,13 @@
                 <artifactId>maven-antrun-plugin</artifactId>
                 <version>3.1.0</version>
                 <executions>
-                    <!-- 1) Antes de los tests: limpiar como un clean -->
+                    <!-- Limpieza antes de los tests -->
                     <execution>
                         <id>clean-allure-results-before-tests</id>
-                        <!-- CAMBIO previo: de test-compile -> initialize -->
                         <phase>initialize</phase>
                         <configuration>
                             <target>
-                                <echo level="info" message="Limpiando target y allure-results antes de los tests..."/>
-                                <!-- Equivalente al clean de Maven, pero al inicio del ciclo -->
+                                <echo level="info" message="Cleaning target and allure-results before tests..."/>
                                 <delete dir="${project.build.directory}" failonerror="false"/>
                                 <delete dir="${basedir}/allure-results" failonerror="false"/>
                                 <mkdir dir="${basedir}/allure-results"/>
@@ -151,33 +147,31 @@
                         </goals>
                     </execution>
 
-                    <!-- 2) Después de los tests: copiar al share y regenerar reporte en el contenedor -->
+                    <!-- Copiar y regenerar reportes automáticamente -->
                     <execution>
                         <id>copy-allure-and-generate-report</id>
-                        <!-- Se ejecuta en la MISMA fase 'test', pero este plugin va después de surefire -->
                         <phase>test</phase>
                         <configuration>
-                            <!-- NUEVO: permite saltar esta ejecución cuando corremos dentro del contenedor -->
                             <skip>${skip.docker.allure}</skip>
-
                             <target>
-                                <echo level="info" message="Copiando resultados nuevos a /allure-share en jdk-maven..."/>
+                                <echo level="info" message="Copying Allure results to shared folder and regenerating report..."/>
+
+                                <!-- Copiar resultados nuevos desde jdk-maven -->
                                 <exec executable="docker">
                                     <arg value="exec"/>
                                     <arg value="jdk-maven"/>
                                     <arg value="bash"/>
                                     <arg value="-lc"/>
-                                    <!-- Copia desde /workspace/allure-results (repo) a /allure-share (share) -->
                                     <arg value="rm -rf /allure-share/* &amp;&amp; cp -r /workspace/allure-results/* /allure-share/"/>
                                 </exec>
 
-                                <echo level="info" message="Regenerando reporte en contenedor allure-reports..."/>
+                                <!-- Regenerar reporte dentro de allure-reports -->
                                 <exec executable="docker">
                                     <arg value="exec"/>
                                     <arg value="allure-reports"/>
                                     <arg value="bash"/>
                                     <arg value="-lc"/>
-                                    <arg value="allure generate /app/allure-results -o /app/allure-report --clean"/>
+                                    <arg value="rm -rf /app/allure-report/* &amp;&amp; allure generate /app/allure-results -o /app/allure-report --clean"/>
                                 </exec>
                             </target>
                         </configuration>
@@ -188,14 +182,13 @@
                 </executions>
             </plugin>
 
-            <!-- Clean para borrar siempre allure-results de la raíz (cuando hagas mvn clean) -->
+            <!-- Clean -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-clean-plugin</artifactId>
                 <version>3.3.2</version>
                 <configuration>
                     <filesets>
-                        <!-- Borra siempre la carpeta allure-results de la raíz del proyecto -->
                         <fileset>
                             <directory>${basedir}/allure-results</directory>
                             <includes>

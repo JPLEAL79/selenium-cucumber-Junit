@@ -68,8 +68,12 @@ El proyecto limpia automáticamente los resultados viejos de Allure antes de cad
 
 Desde el contenedor jdk-maven (Docker)
 
-- docker exec -it jdk-maven sh -c "mvn test -Dbrowser=chrome -DseleniumGridUrl=http://selenium-hub:4444/wd/hub"
-- docker exec -it jdk-maven sh -c "mvn test -Dbrowser=firefox -DseleniumGridUrl=http://selenium-hub:4444/wd/hub"
+- docker exec -it jdk-maven sh -c "mvn test -Dskip.docker.allure=true -Dbrowser=chrome -DseleniumGridUrl=http://selenium-hub:4444/wd/hub"
+- docker exec -it jdk-maven sh -c "mvn test -Dskip.docker.allure=true -Dbrowser=firefox -DseleniumGridUrl=http://selenium-hub:4444/wd/hub"
+
+Actualizar el informe Allure (si es necesario Docker)
+- docker exec -it allure-reports sh -c "rm -rf /app/allure-report/* && cp -r /allure-share/* /app/allure-results/ && allure generate /app/allure-results -o /app/allure-report --clean"
+
 
 4. Visualizar el reporte Allure
 

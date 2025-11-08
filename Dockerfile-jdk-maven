@@ -14,5 +14,7 @@ WORKDIR /usr/src/app
 # Copia el contenido del proyecto (código fuente, pom.xml, etc.) al contenedor
 COPY . .
 
-# Comando por defecto: ejecuta las pruebas de Maven automáticamente
-CMD ["mvn", "clean", "test"]
+# Comando por defecto:
+# Mantén el contenedor vivo, pero SIN ejecutar mvn clean test automáticamente.
+# Así evitamos tener un Maven "fantasma" pisando target/ y allure-results
+CMD ["tail", "-f", "/dev/null"]

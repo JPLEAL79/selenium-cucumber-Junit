@@ -72,18 +72,20 @@ pipeline {
         stage('Run tests (Chrome & Firefox - headless)') {
             steps {
                 script {
+                    // *** Punto clave: resolver la ruta real de Maven ***
+                    def mvnHome = tool 'maven-3.9.11'
+                    def mvnCmd  = "${mvnHome}/bin/mvn"
+
                     def browsers   = ['chrome', 'firefox']    // orden SECUENCIAL
                     def gridUrl    = env.SELENIUM_GRID_URL
                     def mavenFlags = env.MAVEN_FLAGS
 
-                    def mvnBase = "mvn test ${mavenFlags}"
-
                     for (browser in browsers) {
-                        echo 'Running tests inside jdk-maven'
+                        echo 'Running tests on Jenkins agent with Maven tool'
                         echo "Running tests on ${browser.capitalize()} (headless)"
 
                         sh """
-                            ${mvnBase} \
+                            "${mvnCmd}" test ${mavenFlags} \
                                 -Dbrowser=${browser} \
                                 -DseleniumGridUrl=${gridUrl}
                         """

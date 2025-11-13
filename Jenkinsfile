@@ -1,7 +1,7 @@
 // ============================================================================
 // Jenkinsfile - Selenium + Cucumber + JUnit + Allure (Docker + Jenkins)
-// Autor: Juan Pablo Leal
-// - Ejecuta tests dentro del contenedor "jdk-maven" SIEMPRE en headless.
+// - Corre Chrome y Firefox de forma SECUENCIAL (más estable).
+// - Ejecuta tests con Maven en el agente Jenkins SIEMPRE en headless.
 // - Publica Allure en Jenkins usando la carpeta "allure-results" del workspace.
 // - Jenkins solo conserva las ÚLTIMAS 5 ejecuciones (builds + artefactos).
 // ============================================================================
@@ -24,7 +24,8 @@ pipeline {
     }
 
     environment {
-        // URL del Selenium Grid ya existente (NO tocar)
+        // URL del Selenium Grid; ajusta si tu Jenkins no ve el host "selenium-hub"
+        // Por ejemplo, podrías necesitar: http://host.docker.internal:4444/wd/hub
         SELENIUM_GRID_URL = 'http://selenium-hub:4444/wd/hub'
 
         // Carpeta donde Maven deja los resultados Allure (desde pom.xml)
@@ -46,9 +47,6 @@ pipeline {
         stage('Prepare workspace') {
             steps {
                 echo 'Cleaning previous Allure results and reports in workspace...'
-
-                // Limpieza controlada para no mezclar builds:
-                // - Jenkins workspace, NO toca contenedores ni imágenes
                 sh '''
                     rm -rf "${ALLURE_RESULTS}" || true
                     rm -rf target/allure-report || true
@@ -61,25 +59,22 @@ pipeline {
             steps {
                 script {
                     // Lista de navegadores a ejecutar de forma SECUENCIAL
-                    def browsers = ['chrome', 'firefox']
-                    def gridUrl = env.SELENIUM_GRID_URL
+                    def browsers   = ['chrome', 'firefox']
+                    def gridUrl    = env.SELENIUM_GRID_URL
                     def mavenFlags = env.MAVEN_FLAGS
 
                     for (browser in browsers) {
-                        echo "Running tests inside jdk-maven"
+                        echo 'Running tests inside jdk-maven'            // mensaje requerido
                         echo "Running tests on ${browser.capitalize()} (headless)"
 
-                        // Ejecuta Maven DENTRO del contenedor jdk-maven
-                        // - Usa /workspace (mapeado al repo en el host/Jenkins)
-                        // - Usa Selenium Grid http://selenium-hub:4444/wd/hub
-                        // - Fuerza headless y desactiva Allure-Docker del pom (skip.docker.allure=true)
+                        // Ejecuta Maven DIRECTO en el agente Jenkins
+                        // - Usa el workspace actual de Jenkins
+                        // - Usa Selenium Grid (URL por env var)
+                        // - Fuerza headless y desactiva Allure-Docker
                         sh """
-                            docker exec jdk-maven sh -lc '
-                                cd /workspace && \
-                                mvn test ${mavenFlags} \
-                                    -Dbrowser=${browser} \
-                                    -DseleniumGridUrl=${gridUrl}
-                            '
+                            mvn test ${mavenFlags} \
+                                -Dbrowser=${browser} \
+                                -DseleniumGridUrl=${gridUrl}
                         """
                     }
                 }
@@ -89,8 +84,8 @@ pipeline {
         stage('Publish Allure report') {
             steps {
                 echo "Publishing Allure report from '${env.ALLURE_RESULTS}'"
+
                 // El plugin de Allure en Jenkins lee directamente desde allure-results
-                // NO usa el servidor Docker en http://localhost:4040
                 allure includeProperties: false,
                        jdk: '',
                        results: [[path: "${env.ALLURE_RESULTS}"]]
@@ -103,7 +98,6 @@ pipeline {
     post {
         always {
             echo 'Archiving logs and screenshots from target/...'
-            // Deja artefactos básicos aunque la build falle
             archiveArtifacts artifacts: 'target/**/*.log, target/screenshots/**/*',
                              onlyIfSuccessful: false,
                              allowEmptyArchive: true

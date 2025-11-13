@@ -2,7 +2,6 @@
 // Jenkinsfile - Selenium + Cucumber + JUnit + Allure (Docker + Jenkins)
 // Autor: Juan Pablo Leal
 // - Ejecuta tests dentro del contenedor "jdk-maven" SIEMPRE en headless.
-// - Corre Chrome y Firefox de forma SECUENCIAL (más estable).
 // - Publica Allure en Jenkins usando la carpeta "allure-results" del workspace.
 // - Jenkins solo conserva las ÚLTIMAS 5 ejecuciones (builds + artefactos).
 // ============================================================================
@@ -11,121 +10,103 @@ pipeline {
     agent any
 
     options {
-        timestamps()
-        ansiColor('xterm')
-        disableConcurrentBuilds()                            // evita builds solapados
-        buildDiscarder(logRotator(
-            numToKeepStr: '5',                              // solo 5 builds
-            artifactNumToKeepStr: '5'                       // solo artefactos de 5 builds
+        timestamps()                                    // timestamps en el log
+        disableConcurrentBuilds()                       // evita builds solapados
+        buildDiscarder(logRotator(                      // conserva máx. 5 builds
+            numToKeepStr: '5',
+            artifactNumToKeepStr: '5'
         ))
-        timeout(time: 30, unit: 'MINUTES')
     }
 
-    // Parámetros del job
-    parameters {
-        // Lista de navegadores a ejecutar, separados por espacio
-        string(
-            name: 'BROWSERS',
-            defaultValue: 'chrome firefox',
-            description: 'Browsers to run (space-separated): chrome firefox'
-        )
-
-        booleanParam(
-            name: 'CLEAN',
-            defaultValue: true,
-            description: 'Run mvn clean before tests'
-        )
+    // Ejecutar todos los días a las 09:00 (hora del Jenkins)
+    triggers {
+        cron('0 9 * * *')
     }
 
     environment {
-        // Tu proyecto escribe en "allure-results" en la RAÍZ del repo
-        // (coincide con la propiedad allure.results.directory del pom.xml)
+        // URL del Selenium Grid ya existente (NO tocar)
+        SELENIUM_GRID_URL = 'http://selenium-hub:4444/wd/hub'
+
+        // Carpeta donde Maven deja los resultados Allure (desde pom.xml)
         ALLURE_RESULTS = 'allure-results'
+
+        // Flags comunes para Maven: no usar Allure Docker y siempre headless
+        MAVEN_FLAGS    = '-Dskip.docker.allure=true -Dheadless=true'
     }
 
     stages {
 
         stage('Checkout') {
             steps {
+                echo 'Checking out source code...'
                 checkout scm
             }
         }
 
-        stage('Precheck jdk-maven container') {
+        stage('Prepare workspace') {
             steps {
+                echo 'Cleaning previous Allure results and reports in workspace...'
+
+                // Limpieza controlada para no mezclar builds:
+                // - Jenkins workspace, NO toca contenedores ni imágenes
                 sh '''
-                    echo "[INFO] Checking jdk-maven container..."
-                    if ! docker ps --format "{{.Names}}" | grep -q "^jdk-maven$"; then
-                      echo "[ERROR] Container jdk-maven is not running."
-                      exit 1
-                    fi
+                    rm -rf "${ALLURE_RESULTS}" || true
+                    rm -rf target/allure-report || true
+                    mkdir -p "${ALLURE_RESULTS}"
                 '''
             }
         }
 
-        stage('Build & Test (inside jdk-maven, headless)') {
+        stage('Run tests (Chrome & Firefox - headless)') {
             steps {
-                sh """
-                    set -e
+                script {
+                    // Lista de navegadores a ejecutar de forma SECUENCIAL
+                    def browsers = ['chrome', 'firefox']
+                    def gridUrl = env.SELENIUM_GRID_URL
+                    def mavenFlags = env.MAVEN_FLAGS
 
-                    # Si el parámetro viene vacío, por seguridad usamos solo chrome
-                    BROWSERS_LIST="\${BROWSERS}"
-                    if [ -z "\${BROWSERS_LIST}" ]; then
-                      BROWSERS_LIST="chrome"
-                    fi
+                    for (browser in browsers) {
+                        echo "Running tests inside jdk-maven"
+                        echo "Running tests on ${browser.capitalize()} (headless)"
 
-                    echo "[INFO] Browsers to run: \${BROWSERS_LIST}"
-
-                    MVN_BASE="mvn -q"
-                    if [ "\${CLEAN}" = "true" ]; then
-                      MVN_BASE="\${MVN_BASE} clean"
-                    fi
-
-                    for B in \${BROWSERS_LIST}; do
-                      echo "[INFO] Running tests in jdk-maven | browser=\${B} | headless=true"
-
-                      CMD="\${MVN_BASE} test \\
-                        -Dskip.docker.allure=true \\
-                        -Dheadless=true \\
-                        -Dbrowser=\${B} \\
-                        -DseleniumGridUrl=http://selenium-hub:4444/wd/hub"
-
-                      echo "[INFO] Executing inside jdk-maven: \${CMD}"
-                      docker exec jdk-maven sh -lc "\${CMD}"
-                    done
-                """
-            }
-            post {
-                always {
-                    sh '''
-                        echo "[INFO] Listing Allure results in ${ALLURE_RESULTS}:"
-                        if [ -d "${ALLURE_RESULTS}" ]; then
-                          ls -la "${ALLURE_RESULTS}" || true
-                          echo "[INFO] Total files:"
-                          find "${ALLURE_RESULTS}" -type f | wc -l || true
-                        else
-                          echo "[WARN] Directory ${ALLURE_RESULTS} does not exist in workspace."
-                        fi
-                    '''
+                        // Ejecuta Maven DENTRO del contenedor jdk-maven
+                        // - Usa /workspace (mapeado al repo en el host/Jenkins)
+                        // - Usa Selenium Grid http://selenium-hub:4444/wd/hub
+                        // - Fuerza headless y desactiva Allure-Docker del pom (skip.docker.allure=true)
+                        sh """
+                            docker exec jdk-maven sh -lc '
+                                cd /workspace && \
+                                mvn test ${mavenFlags} \
+                                    -Dbrowser=${browser} \
+                                    -DseleniumGridUrl=${gridUrl}
+                            '
+                        """
+                    }
                 }
             }
         }
 
-        stage('Publish Allure') {
+        stage('Publish Allure report') {
             steps {
-                echo "[INFO] Publishing Allure report from: ${ALLURE_RESULTS}"
+                echo "Publishing Allure report from '${env.ALLURE_RESULTS}'"
+                // El plugin de Allure en Jenkins lee directamente desde allure-results
+                // NO usa el servidor Docker en http://localhost:4040
                 allure includeProperties: false,
                        jdk: '',
-                       results: [[path: "${ALLURE_RESULTS}"]]
+                       results: [[path: "${env.ALLURE_RESULTS}"]]
+
+                echo 'Publishing Allure report - done'
             }
         }
     }
 
     post {
         always {
-            // Opcional: logs y screenshots si los generas en target/
+            echo 'Archiving logs and screenshots from target/...'
+            // Deja artefactos básicos aunque la build falle
             archiveArtifacts artifacts: 'target/**/*.log, target/screenshots/**/*',
-                             onlyIfSuccessful: false
+                             onlyIfSuccessful: false,
+                             allowEmptyArchive: true
         }
     }
 }

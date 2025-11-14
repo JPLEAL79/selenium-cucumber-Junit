@@ -2,14 +2,23 @@ package definitions;
 
 import io.cucumber.java.After;
 import io.cucumber.java.Before;
+import io.cucumber.java.Scenario;
+import io.qameta.allure.Allure;
+import org.openqa.selenium.OutputType;
+import org.openqa.selenium.TakesScreenshot;
 import org.openqa.selenium.WebDriver;
 import org.openqa.selenium.chrome.ChromeOptions;
 import org.openqa.selenium.firefox.FirefoxOptions;
 import org.openqa.selenium.remote.RemoteWebDriver;
 
+import java.io.ByteArrayInputStream;
+import java.io.File;
 import java.net.MalformedURLException;
 import java.net.URL;
+import java.nio.file.Files;
 import java.time.Duration;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -17,7 +26,6 @@ public class Hooks {
 
     // Driver compartido entre los steps
     public static WebDriver driver;
-
 
     private static String resolveGridUrl() {
         // 1) Propiedad del sistema: -DseleniumGridUrl=http://...
@@ -76,11 +84,9 @@ public class Hooks {
             // Aceptar certificados inseguros si el entorno lo requiere
             ch.setAcceptInsecureCerts(true);
 
-            //  Desactivar el password manager y popup de guardar/cambiar contraseña
+            // Desactivar el password manager y popup de guardar/cambiar contraseña
             Map<String, Object> prefs = new HashMap<>();
-            // Desactiva el servicio de credenciales
             prefs.put("credentials_enable_service", false);
-            // Desactiva el password manager del perfil
             prefs.put("profile.password_manager_enabled", false);
             ch.setExperimentalOption("prefs", prefs);
 
@@ -95,7 +101,7 @@ public class Hooks {
                     "--window-size=1920,1080"  // Tamaño de ventana consistente
             );
 
-            // Crear RemoteWebDriver apuntando al Grid
+            // Crea RemoteWebDriver apuntando al Grid
             driver = new RemoteWebDriver(new URL(gridUrl), ch);
         }
 
@@ -104,11 +110,43 @@ public class Hooks {
     }
 
     @After
-    public void tearDown() {
-        // Cerrar el navegador al final de cada escenario
-        if (driver != null) {
-            driver.quit();
-            System.out.println("[Hooks] WebDriver cerrado correctamente.");
+    public void tearDown(Scenario scenario) {
+        try {
+            // Solo capturar screenshot si falla
+            if (scenario.isFailed() && driver instanceof TakesScreenshot) {
+                System.out.println("[Hooks] Scenario failed, taking screenshot: " + scenario.getName());
+
+                byte[] screenshot = ((TakesScreenshot) driver).getScreenshotAs(OutputType.BYTES);
+
+                // Nombre de archivo seguro + timestamp
+                String safeName = scenario.getName()
+                        .replaceAll("[^a-zA-Z0-9-_\\.]", "_");
+
+                String timestamp = LocalDateTime.now()
+                        .format(DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss"));
+
+                String fileName = "target/screenshots/" + safeName + "_" + timestamp + ".png";
+
+                File destFile = new File(fileName);
+                destFile.getParentFile().mkdirs();
+                Files.write(destFile.toPath(), screenshot);
+
+                // Adjunta a Allure
+                Allure.addAttachment(
+                        "Screenshot - " + scenario.getName(),
+                        "image/png",
+                        new ByteArrayInputStream(screenshot),
+                        "png"
+                );
+            }
+        } catch (Exception e) {
+            System.out.println("[Hooks] Could not capture screenshot: " + e.getMessage());
+        } finally {
+            // Cierra el navegador al final de cada escenario (pase o falle)
+            if (driver != null) {
+                driver.quit();
+                System.out.println("[Hooks] WebDriver cerrado correctamente.");
+            }
         }
     }
 }

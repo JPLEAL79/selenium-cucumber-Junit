@@ -1,24 +1,17 @@
 package definitions;
 
+import commons.ScreenshotUtil;
 import io.cucumber.java.After;
 import io.cucumber.java.Before;
 import io.cucumber.java.Scenario;
-import io.qameta.allure.Allure;
-import org.openqa.selenium.OutputType;
-import org.openqa.selenium.TakesScreenshot;
 import org.openqa.selenium.WebDriver;
 import org.openqa.selenium.chrome.ChromeOptions;
 import org.openqa.selenium.firefox.FirefoxOptions;
 import org.openqa.selenium.remote.RemoteWebDriver;
 
-import java.io.ByteArrayInputStream;
-import java.io.File;
 import java.net.MalformedURLException;
 import java.net.URL;
-import java.nio.file.Files;
 import java.time.Duration;
-import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -41,13 +34,12 @@ public class Hooks {
         }
 
         // 3) Si se está ejecutando dentro de un contenedor (/.dockerenv existe),
-        //    asumimos que el hub está accesible por el nombre del servicio Docker.
         try {
             if (new java.io.File("/.dockerenv").exists()) {
                 return "http://selenium-hub:4444/wd/hub";
             }
         } catch (Exception ignored) {
-            // Si algo falla aquí, simplemente seguimos al fallback local
+            // Si falla sigue al fallback local
         }
 
         // 4) Fallback local cuando se corre desde la máquina host
@@ -56,7 +48,7 @@ public class Hooks {
 
     @Before
     public void setUp() throws MalformedURLException {
-        // Resolvemos la URL del Grid (puede venir de -DseleniumGridUrl, env, Docker o fallback)
+        // URL del Grid (puede venir de -DseleniumGridUrl, env, Docker o fallback)
         String gridUrl = resolveGridUrl();
         System.out.println("[Hooks] Selenium Grid URL: " + gridUrl);
 
@@ -68,13 +60,13 @@ public class Hooks {
         if ("firefox".equals(browser)) {
             FirefoxOptions ff = new FirefoxOptions();
 
-            // Aceptar certificados inseguros si el entorno lo requiere
+            // Acepta certificados inseguros si el entorno lo requiere
             ff.setAcceptInsecureCerts(true);
 
-            // Ejecutar en modo headless con tamaño de ventana definido
+            // Ejecuta en modo headless con tamaño de ventana definido
             ff.addArguments("-headless", "--width=1920", "--height=1080");
 
-            // Crear RemoteWebDriver apuntando al Grid
+            // Crea RemoteWebDriver apuntando al Grid
             driver = new RemoteWebDriver(new URL(gridUrl), ff);
 
         } else {
@@ -84,7 +76,7 @@ public class Hooks {
             // Aceptar certificados inseguros si el entorno lo requiere
             ch.setAcceptInsecureCerts(true);
 
-            // Desactivar el password manager y popup de guardar/cambiar contraseña
+            // Desactiva la password manager y popup de guardar/cambiar contraseña
             Map<String, Object> prefs = new HashMap<>();
             prefs.put("credentials_enable_service", false);
             prefs.put("profile.password_manager_enabled", false);
@@ -101,7 +93,7 @@ public class Hooks {
                     "--window-size=1920,1080"  // Tamaño de ventana consistente
             );
 
-            // Crea RemoteWebDriver apuntando al Grid
+            // Crear RemoteWebDriver apuntando al Grid
             driver = new RemoteWebDriver(new URL(gridUrl), ch);
         }
 
@@ -112,37 +104,10 @@ public class Hooks {
     @After
     public void tearDown(Scenario scenario) {
         try {
-            // Solo capturar screenshot si falla
-            if (scenario.isFailed() && driver instanceof TakesScreenshot) {
-                System.out.println("[Hooks] Scenario failed, taking screenshot: " + scenario.getName());
-
-                byte[] screenshot = ((TakesScreenshot) driver).getScreenshotAs(OutputType.BYTES);
-
-                // Nombre de archivo seguro + timestamp
-                String safeName = scenario.getName()
-                        .replaceAll("[^a-zA-Z0-9-_\\.]", "_");
-
-                String timestamp = LocalDateTime.now()
-                        .format(DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss"));
-
-                String fileName = "target/screenshots/" + safeName + "_" + timestamp + ".png";
-
-                File destFile = new File(fileName);
-                destFile.getParentFile().mkdirs();
-                Files.write(destFile.toPath(), screenshot);
-
-                // Adjunta a Allure
-                Allure.addAttachment(
-                        "Screenshot - " + scenario.getName(),
-                        "image/png",
-                        new ByteArrayInputStream(screenshot),
-                        "png"
-                );
-            }
-        } catch (Exception e) {
-            System.out.println("[Hooks] Could not capture screenshot: " + e.getMessage());
+            // Screenshot solo cuando falla (delegado al helper)
+            ScreenshotUtil.captureOnFailure(driver, scenario);
         } finally {
-            // Cierra el navegador al final de cada escenario (pase o falle)
+            // Cerrar el navegador al final de cada escenario
             if (driver != null) {
                 driver.quit();
                 System.out.println("[Hooks] WebDriver cerrado correctamente.");

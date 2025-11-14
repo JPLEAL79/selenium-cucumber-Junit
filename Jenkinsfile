@@ -15,17 +15,22 @@ pipeline {
         ))
     }
 
+    // Ejecutar todos los días a las 09:00
     triggers {
         cron('0 9 * * *')
     }
 
     environment {
+        // Selenium Grid desde Jenkins
         SELENIUM_GRID_URL = 'http://host.docker.internal:4444/wd/hub'
+        // Carpeta de resultados Allure
         ALLURE_RESULTS    = 'allure-results'
+        // Flags Maven para Jenkins (headless y sin Allure Docker)
         MAVEN_FLAGS       = '-Dskip.docker.allure=true -Dheadless=true'
     }
 
     stages {
+
         stage('Checkout') {
             steps {
                 echo 'Checking out source code...'
@@ -69,6 +74,7 @@ pipeline {
             steps {
                 echo "Publishing Allure report from '${env.ALLURE_RESULTS}'"
 
+                // Usa la instalación Allure_2.35.1 configurada en Jenkins
                 allure commandline: 'Allure_2.35.1',
                        includeProperties: false,
                        jdk: '',
@@ -80,27 +86,27 @@ pipeline {
     }
 
     post {
-        // Siempre guardar logs y screenshots (si existen), con retención limitada por Jenkins
+        // Guardar logs y screenshots sin acumular basura
         always {
             echo 'Archiving logs and screenshots...'
 
-            // Preparar carpeta temporal con solo lo necesario
+            // Copia solo target completo de la carpeta temporal
             sh '''
                 rm -rf ci-artifacts
                 mkdir -p ci-artifacts
 
-                # Si existe target, copiamos todo el contenido como evidencia de la ejecución
                 if [ -d "target" ]; then
                   cp -r target ci-artifacts/target
                 fi
             '''
 
-            // Jenkins ejecuta máx. 5 builds; no se acumula basura
+            // Jenkins ejecuta máx 5 builds
             archiveArtifacts artifacts: 'ci-artifacts/**/*',
                              allowEmptyArchive: true,
                              onlyIfSuccessful: false
 
-            // Limpiar temporales del workspace
+            // Limpiamos temporales
             sh 'rm -rf ci-artifacts'
         }
     }
+}

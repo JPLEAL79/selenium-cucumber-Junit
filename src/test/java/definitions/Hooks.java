@@ -1,7 +1,9 @@
 package definitions;
 
+import commons.ScreenshotUtil;
 import io.cucumber.java.After;
 import io.cucumber.java.Before;
+import io.cucumber.java.Scenario;
 import org.openqa.selenium.WebDriver;
 import org.openqa.selenium.chrome.ChromeOptions;
 import org.openqa.selenium.firefox.FirefoxOptions;
@@ -18,7 +20,6 @@ public class Hooks {
     // Driver compartido entre los steps
     public static WebDriver driver;
 
-
     private static String resolveGridUrl() {
         // 1) Propiedad del sistema: -DseleniumGridUrl=http://...
         String fromProp = System.getProperty("seleniumGridUrl");
@@ -33,13 +34,12 @@ public class Hooks {
         }
 
         // 3) Si se está ejecutando dentro de un contenedor (/.dockerenv existe),
-        //    asumimos que el hub está accesible por el nombre del servicio Docker.
         try {
             if (new java.io.File("/.dockerenv").exists()) {
                 return "http://selenium-hub:4444/wd/hub";
             }
         } catch (Exception ignored) {
-            // Si algo falla aquí, simplemente seguimos al fallback local
+            // Si falla sigue al fallback local
         }
 
         // 4) Fallback local cuando se corre desde la máquina host
@@ -48,7 +48,7 @@ public class Hooks {
 
     @Before
     public void setUp() throws MalformedURLException {
-        // Resolvemos la URL del Grid (puede venir de -DseleniumGridUrl, env, Docker o fallback)
+        // URL del Grid (puede venir de -DseleniumGridUrl, env, Docker o fallback)
         String gridUrl = resolveGridUrl();
         System.out.println("[Hooks] Selenium Grid URL: " + gridUrl);
 
@@ -60,13 +60,13 @@ public class Hooks {
         if ("firefox".equals(browser)) {
             FirefoxOptions ff = new FirefoxOptions();
 
-            // Aceptar certificados inseguros si el entorno lo requiere
+            // Acepta certificados inseguros si el entorno lo requiere
             ff.setAcceptInsecureCerts(true);
 
-            // Ejecutar en modo headless con tamaño de ventana definido
+            // Ejecuta en modo headless con tamaño de ventana definido
             ff.addArguments("-headless", "--width=1920", "--height=1080");
 
-            // Crear RemoteWebDriver apuntando al Grid
+            // Crea RemoteWebDriver apuntando al Grid
             driver = new RemoteWebDriver(new URL(gridUrl), ff);
 
         } else {
@@ -76,11 +76,9 @@ public class Hooks {
             // Aceptar certificados inseguros si el entorno lo requiere
             ch.setAcceptInsecureCerts(true);
 
-            //  Desactivar el password manager y popup de guardar/cambiar contraseña
+            // Desactiva la password manager y popup de guardar/cambiar contraseña
             Map<String, Object> prefs = new HashMap<>();
-            // Desactiva el servicio de credenciales
             prefs.put("credentials_enable_service", false);
-            // Desactiva el password manager del perfil
             prefs.put("profile.password_manager_enabled", false);
             ch.setExperimentalOption("prefs", prefs);
 
@@ -104,11 +102,16 @@ public class Hooks {
     }
 
     @After
-    public void tearDown() {
-        // Cerrar el navegador al final de cada escenario
-        if (driver != null) {
-            driver.quit();
-            System.out.println("[Hooks] WebDriver cerrado correctamente.");
+    public void tearDown(Scenario scenario) {
+        try {
+            // Screenshot solo cuando falla (delegado al helper)
+            ScreenshotUtil.captureOnFailure(driver, scenario);
+        } finally {
+            // Cerrar el navegador al final de cada escenario
+            if (driver != null) {
+                driver.quit();
+                System.out.println("[Hooks] WebDriver cerrado correctamente.");
+            }
         }
     }
 }

@@ -1,19 +1,51 @@
+# =============================
 # Build / IDE
+# =============================
 target/
 .idea/
 *.iml
+out/
 
+# =============================
 # Reports & Screenshots
+# =============================
 allure-results/
 allure-report/
 reports/
 screenshots/
 
-# Env / Credentials
+# Cucumber / Allure cache
+.cucumber/
+
+# =============================
+# Logs
+# =============================
+*.log
+
+# =============================
+# Security / Credentials
+# =============================
 .env
 settings.xml
 *.pem
 *.key
 *.jks
+
+# =============================
+# Maven local repo (avoid credentials leak)
+# =============================
+.m2/
+
+# =============================
+# OS / Editor trash
+# =============================
+.DS_Store
+Thumbs.db
+
+# =============================
+# Docker
+# =============================
+docker-compose.override.yml
+.docker/
 
 

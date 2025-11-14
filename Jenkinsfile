@@ -80,11 +80,33 @@ pipeline {
     }
 
     post {
+        // Siempre guardar logs y screenshots (si existen), con retención limitada por Jenkins
         always {
-            echo 'Archiving logs and screenshots from target/...'
-            archiveArtifacts artifacts: 'target/**/*.log, target/screenshots/**/*',
-                             onlyIfSuccessful: false,
-                             allowEmptyArchive: true
+            echo 'Archiving logs and screenshots...'
+
+            // Preparar carpeta temporal con solo lo necesario
+            sh '''
+                rm -rf ci-artifacts
+                mkdir -p ci-artifacts
+
+                # Logs (target/**/*.log)
+                if [ -d "target" ]; then
+                  find target -type f -name "*.log" -exec cp --parents {} ci-artifacts/ \;
+                fi
+
+                # Screenshots (target/screenshots/**)
+                if [ -d "target/screenshots" ]; then
+                  mkdir -p ci-artifacts/screenshots
+                  cp -r target/screenshots/* ci-artifacts/screenshots/ 2>/dev/null || true
+                fi
+            '''
+
+            // Jenkins ejecuta máx. 5 builds
+            archiveArtifacts artifacts: 'ci-artifacts/**/*',
+                             allowEmptyArchive: true,
+                             onlyIfSuccessful: false
+
+            // Limpiar temporales del workspace
+            sh 'rm -rf ci-artifacts'
         }
     }
-}

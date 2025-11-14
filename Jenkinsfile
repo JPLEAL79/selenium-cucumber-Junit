@@ -2,31 +2,30 @@ pipeline {
     agent any
 
     tools {
-        // Usar las herramientas definidas en "Global Tool Configuration"
-        jdk    'jdk-17'
-        maven  'maven-3.9.11'
+        jdk   'jdk-17'
+        maven 'maven-3.9.11'
     }
 
     options {
-        // Mantener solo las últimas 5 ejecuciones
-        buildDiscarder(logRotator(numToKeepStr: '5'))
         timestamps()
+        disableConcurrentBuilds()
+        buildDiscarder(logRotator(
+            numToKeepStr: '5',
+            artifactNumToKeepStr: '5'
+        ))
     }
 
-    // Ejecutar todos los días a las 09:00
     triggers {
         cron('0 9 * * *')
     }
 
     environment {
-        // URL del Selenium Grid accesible desde Jenkins
         SELENIUM_GRID_URL = 'http://host.docker.internal:4444/wd/hub'
-        // Siempre headless en Jenkins
-        HEADLESS = 'true'
+        ALLURE_RESULTS    = 'allure-results'
+        MAVEN_FLAGS       = '-Dskip.docker.allure=true -Dheadless=true'
     }
 
     stages {
-
         stage('Checkout') {
             steps {
                 echo 'Checking out source code...'
@@ -38,9 +37,9 @@ pipeline {
             steps {
                 echo 'Cleaning previous Allure results and reports in workspace...'
                 sh '''
-                    rm -rf allure-results
-                    rm -rf target/allure-report
-                    mkdir -p allure-results
+                    rm -rf "${ALLURE_RESULTS}" || true
+                    rm -rf target/allure-report || true
+                    mkdir -p "${ALLURE_RESULTS}"
                 '''
             }
         }
@@ -48,20 +47,18 @@ pipeline {
         stage('Run tests (Chrome & Firefox - headless)') {
             steps {
                 script {
-                    echo 'Running tests on Jenkins agent with Maven'
+                    def browsers   = ['chrome', 'firefox']
+                    def gridUrl    = env.SELENIUM_GRID_URL
+                    def mavenFlags = env.MAVEN_FLAGS
 
-                    // Secuencia: primero Chrome, luego Firefox (no paralelo)
-                    def browsers = ['chrome', 'firefox']
-
-                    browsers.each { browserName ->
-                        echo "Running tests on ${browserName.capitalize()} (headless)"
+                    for (browser in browsers) {
+                        echo 'Running tests on Jenkins agent with Maven'
+                        echo "Running tests on ${browser.capitalize()} (headless)"
 
                         sh """
-                            mvn test \
-                              -Dskip.docker.allure=true \
-                              -Dheadless=${HEADLESS} \
-                              -Dbrowser=${browserName} \
-                              -DseleniumGridUrl=${SELENIUM_GRID_URL}
+                            mvn test ${mavenFlags} \
+                                -Dbrowser=${browser} \
+                                -DseleniumGridUrl=${gridUrl}
                         """
                     }
                 }
@@ -70,11 +67,14 @@ pipeline {
 
         stage('Publish Allure report') {
             steps {
-                echo "Publishing Allure report from 'allure-results'"
+                echo "Publishing Allure report from '${env.ALLURE_RESULTS}'"
 
-                // Usa el plugin de Allure en Jenkins, leyendo directamente desde allure-results
                 allure commandline: 'Allure_2.35.1',
-                       results: [[path: 'allure-results']]
+                       includeProperties: false,
+                       jdk: '',
+                       results: [[path: "${env.ALLURE_RESULTS}"]]
+
+                echo 'Publishing Allure report - done'
             }
         }
     }
@@ -82,7 +82,9 @@ pipeline {
     post {
         always {
             echo 'Archiving logs and screenshots from target/...'
-            archiveArtifacts artifacts: 'target/**/*.*', allowEmptyArchive: true
+            archiveArtifacts artifacts: 'target/**/*.log, target/screenshots/**/*',
+                             onlyIfSuccessful: false,
+                             allowEmptyArchive: true
         }
     }
 }

@@ -89,19 +89,13 @@ pipeline {
                 rm -rf ci-artifacts
                 mkdir -p ci-artifacts
 
-                # Logs (target/**/*.log)
+                # Si existe target, copiamos todo el contenido como evidencia de la ejecución
                 if [ -d "target" ]; then
-                  find target -type f -name "*.log" -exec cp --parents {} ci-artifacts/ \;
-                fi
-
-                # Screenshots (target/screenshots/**)
-                if [ -d "target/screenshots" ]; then
-                  mkdir -p ci-artifacts/screenshots
-                  cp -r target/screenshots/* ci-artifacts/screenshots/ 2>/dev/null || true
+                  cp -r target ci-artifacts/target
                 fi
             '''
 
-            // Jenkins ejecuta máx. 5 builds
+            // Jenkins ejecuta máx. 5 builds; no se acumula basura
             archiveArtifacts artifacts: 'ci-artifacts/**/*',
                              allowEmptyArchive: true,
                              onlyIfSuccessful: false

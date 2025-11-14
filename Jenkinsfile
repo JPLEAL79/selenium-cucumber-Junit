@@ -105,14 +105,15 @@ pipeline {
             steps {
                 echo "Publishing Allure report from '${env.ALLURE_RESULTS}'"
 
-                allure includeProperties: false,
+                allure commandline: 'Allure_2.35.1',   // nombre EXACTO de la tool
+                       includeProperties: false,
                        jdk: '',
                        results: [[path: "${env.ALLURE_RESULTS}"]]
 
                 echo 'Publishing Allure report - done'
             }
         }
-    }
+
 
     // ------------------------------------------------------------------------
     // Post-actions: archivamos logs y screenshots aunque la build falle

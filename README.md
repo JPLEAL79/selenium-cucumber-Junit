@@ -63,6 +63,7 @@ Desde Windows o IntelliJ
 No es necesario usar clean.
 El proyecto limpia automáticamente los resultados viejos de Allure antes de cada ejecución.
 
+
 - mvn test -Dbrowser=chrome -DseleniumGridUrl=http://localhost:4444/wd/hub
 - mvn test -Dbrowser=firefox -DseleniumGridUrl=http://localhost:4444/wd/hub
 

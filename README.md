@@ -1,9 +1,7 @@
-# Selenium + Cucumber + JUnit Automation Framework (Dockerized)
+Selenium + Cucumber + JUnit Automation Framework (Dockerized)
 
-Framework de **automatización de pruebas funcionales Web** desarrollado en **Java** y **Maven**, con soporte para **Allure Reports** y ejecución en **Jenkins** dentro de contenedores **Docker**.  
-Diseñado para ser **portable**, **modular** y fácilmente integrable en pipelines **CI/CD**.
-
----
+Framework de automatización Web con Java 17, Selenium, Cucumber, JUnit 5, Allure Reports y ejecución en Docker / Jenkins.
+Incluye captura automática de screenshots solo en caso de fallo, administrada por la clase ScreenshotUtil.
 
 ## Stack Tecnológico
 
@@ -22,31 +20,31 @@ Diseñado para ser **portable**, **modular** y fácilmente integrable en pipelin
 ## Estructura del Proyecto
 
 selenium-cucumber-Junit/
-┣ 📂 src
-┃ ┣ 📂 main/java/... # Clases base y utilidades
-┃ ┗ 📂 test/java/... # Step Definitions y Hooks
-┣ 📂 features/ # Escenarios Cucumber (.feature)
-┣ 📂 target/ # Resultados de compilación
-┣ 📂 allure-results/ # Resultados Allure (ignorar en Git)
-┣ 📜 pom.xml # Configuración Maven (JUnit + Cucumber + Allure)
-┣ 📜 Dockerfile-jdk-maven # Imagen base para ejecución Maven
-┣ 📜 Dockerfile-allure-reports
-┣ 📜 docker-compose.yaml # Orquestación de contenedores
-┗ 📜 README.md
-
+┣ src/
+┃ ┣ main/java/...      # Utilidades base
+┃ ┗ test/java/...      # Hooks, Steps, ScreenshotUtil
+┣ features/            # Escenarios Cucumber
+┣ target/              # Compilación + evidencia (ci-artifacts)
+┣ allure-results/      # Resultados Allure (ignorar en Git)
+┣ pom.xml
+┣ Dockerfile-jdk-maven
+┣ Dockerfile-allure-reports
+┣ docker-compose.yaml
+┗ README.md
 
 ---
-
 ##  Ejecución Local
 
-### 1. Clonar el repositorio
+### Clonar el repositorio
 
 ```bash
 git clone https://github.com/JPLEAL79/selenium-cucumber-Junit.git
 cd selenium-cucumber-Junit
 
-
-Levantar el entorno con Docker Compose.
+ Ejecutar con Docker (entorno completo)
+  Levantar todos los contenedores
+  
+- docker-compose down -v
 - docker-compose up --build
 
 Esto iniciará los contenedores:
@@ -63,8 +61,7 @@ Desde Windows o IntelliJ
 No es necesario usar clean.
 El proyecto limpia automáticamente los resultados viejos de Allure antes de cada ejecución.
 
-
-- mvn test -Dbrowser=chrome -DseleniumGridUrl=http://localhost:4444/wd/hub
+- mvn test -Dbrowser=chrome  -DseleniumGridUrl=http://localhost:4444/wd/hub
 - mvn test -Dbrowser=firefox -DseleniumGridUrl=http://localhost:4444/wd/hub
 
 Desde el contenedor jdk-maven (Docker)
@@ -75,8 +72,19 @@ Desde el contenedor jdk-maven (Docker)
 Actualizar el informe Allure (si es necesario Docker)
 - docker exec -it allure-reports sh -c "rm -rf /app/allure-report/* && cp -r /allure-share/* /app/allure-results/ && allure generate /app/allure-results -o /app/allure-report --clean"
 
+Reiniciar todo el entorno
+- docker-compose down -v
+- docker system prune -f
+- docker-compose up --build
 
-4. Visualizar el reporte Allure
+Esto:
+-Elimina contenedores
+-Elimina volúmenes
+-Limpia red
+-Reconstruye todo desde cero
+
+
+Visualizar el reporte Allure
 
 - Después de ejecutar las pruebas, el sistema:
 - Limpia automáticamente allure-results/
